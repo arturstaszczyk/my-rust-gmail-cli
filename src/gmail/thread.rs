@@ -102,13 +102,20 @@ pub fn attachment_json(a: &Attachment) -> Value {
 /// Drops quoted history: `>` lines, and everything from a reply attribution
 /// ("On … wrote:", "W dniu … napisał(a):") or an "Original Message" divider.
 pub fn strip_quoted(text: &str) -> String {
+    let lines: Vec<&str> = text.lines().collect();
     let mut out: Vec<&str> = Vec::new();
-    for line in text.lines() {
+    for (i, line) in lines.iter().enumerate() {
         let t = line.trim();
         if is_divider(t) {
             break;
         }
-        if is_attribution_end(t) {
+        // Only a real reply header: the next non-blank line is quoted.
+        let quote_follows = lines[i + 1..]
+            .iter()
+            .map(|l| l.trim())
+            .find(|l| !l.is_empty())
+            .is_some_and(|l| l.starts_with('>'));
+        if quote_follows && is_attribution_end(t) {
             // Long attributions get wrapped onto two lines.
             if !starts_attribution(t)
                 && out.last().is_some_and(|prev| starts_attribution(prev.trim()))
@@ -189,6 +196,20 @@ mod tests {
         assert_eq!(strip_quoted(t), "Dzięki");
         let t = "Hi\n\n-----Original Message-----\nFrom: x";
         assert_eq!(strip_quoted(t), "Hi");
+    }
+
+    #[test]
+    fn keeps_wrote_line_without_quote() {
+        let t = "She wrote:\nthe invoice is attached";
+        assert_eq!(strip_quoted(t), t);
+        let t = "Jan pisze:\npotwierdzam przelew";
+        assert_eq!(strip_quoted(t), t);
+    }
+
+    #[test]
+    fn strips_undated_attribution() {
+        let t = "Sure.\n\nJan Kowalski <jan@x.pl> wrote:\n\n> old";
+        assert_eq!(strip_quoted(t), "Sure.");
     }
 
     #[test]
