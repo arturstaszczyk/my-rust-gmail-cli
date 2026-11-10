@@ -41,11 +41,19 @@ pub fn login(no_browser: bool, token_file: bool) -> Result<View> {
     let profile: Profile = gmail.get("/profile", &[])?;
     let account = profile.email_address;
 
-    store::set_refresh_token(kind, &account, &tokens.refresh)?;
     let mut config = store::load_config()?;
     let old = config.account.replace(account.clone());
     let old_kind = std::mem::replace(&mut config.token_store, kind);
-    store::save_config(&config)?;
+    if (old_kind, kind) == (TokenStore::File, TokenStore::File) {
+        // One fixed file: replacing it before a failed save would leave the
+        // config naming the old account with its token already gone.
+        store::save_config(&config)?;
+        store::set_refresh_token(kind, &account, &tokens.refresh)?;
+    } else {
+        // Writing the new store first never destroys the old token.
+        store::set_refresh_token(kind, &account, &tokens.refresh)?;
+        store::save_config(&config)?;
+    }
 
     // Only drop the old token once the config no longer points at it. The
     // file has one fixed path, so a file-to-file login already replaced it.
@@ -92,7 +100,7 @@ pub fn logout() -> Result<View> {
 
     let revoke_error = revoked.as_ref().err().map(|e| e.message.clone());
     let revoked = token.is_some() && revoked.is_ok();
-    let mut text = format!("Logged out {account}; keyring entry removed.");
+    let mut text = format!("Logged out {account}; {} token removed.", config.token_store.name());
     match &revoke_error {
         Some(e) => text.push_str(&format!(
             "\nCould not revoke at Google ({e}); revoke manually at https://myaccount.google.com/permissions"
