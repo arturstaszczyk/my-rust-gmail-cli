@@ -2,7 +2,7 @@
 
 ## Status (2026-11-10)
 - **M1: code complete, not yet tested end-to-end.** `cargo test` (39 tests) and `cargo clippy --all-targets -- -D warnings` pass, and the release build works. Nothing has run against the live Gmail API yet: that needs the one-time setup below plus `mg auth login`.
-- **M1 reopened for headless login** (see "Headless login" below): `mg auth login --no-browser` and an opt-in refresh-token file for machines with no keyring. Not implemented yet.
+- **M1 reopened for headless login** (see "Headless login" below): `mg auth login --no-browser` and an opt-in refresh-token file for machines with no keyring. Implemented; not yet tested against live Google.
 - **M2, M3:** not started.
 - **Toolchain:** Rust 1.99.1 via mise. The repo is local git (`master`, no remote) with no commits yet.
 - **Not run yet:** `cargo audit`, because `cargo-audit` is not installed (`cargo install cargo-audit`).
@@ -155,7 +155,7 @@ As built in M1:
 
 ## Milestones
 1. **M1, today's need:** project skeleton, auth (setup/login/status/logout), `search`, `thread`, `attachment list/save`, output and sanitizing. **Code complete 2026-11-10; end-to-end test pending.**
-   - **Headless login (added 2026-11-10, not implemented):** `auth login --no-browser` (paste the redirect URL) and `--token-file` (0600 refresh-token file, opt-in). `status` and `logout` follow `token_store` from `config.json`.
+   - **Headless login (added 2026-11-10, implemented, live test pending):** `auth login --no-browser` (paste the redirect URL) and `--token-file` (0600 refresh-token file, opt-in). `status` and `logout` follow `token_store` from `config.json`.
 2. **M2:** labels, archive, seen/unseen, trash, spam.
 3. **M3:** compose/reply/forward as drafts, `draft list/show/delete`, gated `draft send`.
 
@@ -193,7 +193,7 @@ M1 results (2026-11-10):
   - `auth status` works with nothing configured.
 - [ ] `cargo audit`: not run yet, `cargo-audit` is not installed.
 - [ ] End-to-end, below.
-- [ ] Headless login. Unit tests: paste parsing (full URL, URL with a wrong state, `error=access_denied`, garbage, over-long line) through `classify_callback`; token file written 0600 and refused when group/world-readable or a symlink; `config.json` without `token_store` reads as `keyring`. Manual: `mg auth login --no-browser --token-file` over SSH on a machine with no D-Bus session, then `mg auth status` and `mg box inbox`.
+- [ ] Headless login. Unit tests (done, `cargo test` 47 pass): paste parsing (full URL, URL with a wrong state, `error=access_denied`, garbage, over-long line) through `classify_callback`; token file written 0600 and refused when group/world-readable or a symlink; `config.json` without `token_store` reads as `keyring`. Manual: `mg auth login --no-browser --token-file` over SSH on a machine with no D-Bus session, then `mg auth status` and `mg box inbox`.
 - End-to-end:
   - `mg search 'NALICZENIE Kazimierza'` → `mg attachment save <msg-id> --out /tmp/x` → Claude reads the PDF with the Read tool. This closes today's loop.
   - Check the binary: `ldd target/release/mg` shows only libc and libgcc_s (plus libdbus if not vendored).

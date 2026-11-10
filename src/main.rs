@@ -83,7 +83,14 @@ enum AuthCommand {
         client_json: PathBuf,
     },
     /// Sign in with the browser and store the refresh token in the keyring
-    Login,
+    Login {
+        /// Headless: print the URL, then paste back the URL the browser was sent to
+        #[arg(long)]
+        no_browser: bool,
+        /// Store the refresh token in a 0600 file instead of the keyring
+        #[arg(long)]
+        token_file: bool,
+    },
     /// Revoke access at Google and remove the keyring entry
     Logout,
     /// Show whether mg is set up and the sign-in still works
@@ -113,7 +120,7 @@ fn run(command: Command) -> Result<View> {
     match command {
         Command::Auth { command } => match command {
             AuthCommand::Setup { client_json } => auth::setup(&client_json),
-            AuthCommand::Login => auth::login(),
+            AuthCommand::Login { no_browser, token_file } => auth::login(no_browser, token_file),
             AuthCommand::Logout => auth::logout(),
             AuthCommand::Status => auth::status(),
         },

@@ -74,11 +74,15 @@ impl Gmail {
     /// Loads the client and refresh token and gets a fresh access token.
     pub fn connect() -> Result<Gmail> {
         let client = store::load_client()?;
-        let account = store::load_config()?
+        let config = store::load_config()?;
+        let account = config
             .account
             .ok_or_else(|| Error::auth("not logged in").hint("run `mg auth login`"))?;
-        let refresh = store::get_refresh_token(&account)?.ok_or_else(|| {
-            Error::auth(format!("no refresh token in the keyring for {account}"))
+        let refresh = store::get_refresh_token(config.token_store, &account)?.ok_or_else(|| {
+            Error::auth(format!(
+                "no refresh token in the {} for {account}",
+                config.token_store.name()
+            ))
                 .hint("run `mg auth login`")
         })?;
         let agent = agent();

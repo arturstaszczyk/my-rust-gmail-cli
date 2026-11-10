@@ -1,9 +1,10 @@
 //! Local state: the OAuth client file, the account name, and the refresh token
-//! in the OS keyring (Secret Service). Nothing secret is written to disk.
+//! in the OS keyring (Secret Service), or, opt-in for headless machines, in a
+//! 0600 `refresh_token` file.
 
 use std::fs::{self, OpenOptions};
 use std::io::{Read, Write};
-use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -16,6 +17,7 @@ pub const KEYRING_SERVICE: &str = "my-google-cli";
 const APP_DIR: &str = "my-google-cli";
 const CLIENT_FILE: &str = "client.json";
 const CONFIG_FILE: &str = "config.json";
+const TOKEN_FILE: &str = "refresh_token";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Client {
@@ -27,6 +29,26 @@ pub struct Client {
 pub struct Config {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub account: Option<String>,
+    #[serde(default)]
+    pub token_store: TokenStore,
+}
+
+/// Where the refresh token lives. Absent in older configs, meaning `Keyring`.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TokenStore {
+    #[default]
+    Keyring,
+    File,
+}
+
+impl TokenStore {
+    pub fn name(self) -> &'static str {
+        match self {
+            TokenStore::Keyring => "keyring",
+            TokenStore::File => "file",
+        }
+    }
 }
 
 /// `$XDG_CONFIG_HOME/my-google-cli`, or `~/.config/my-google-cli`.
@@ -150,34 +172,131 @@ fn entry(account: &str) -> Result<keyring::Entry> {
 }
 
 fn keyring_error(err: keyring::Error) -> Error {
-    Error::auth(format!("keyring: {err}"))
-        .hint("is a Secret Service provider (gnome-keyring, KeePassXC) running and unlocked?")
+    Error::auth(format!("keyring: {err}")).hint(
+        "is a Secret Service provider (gnome-keyring, KeePassXC) running and unlocked? \
+         On a headless machine, use `mg auth login --no-browser --token-file`",
+    )
 }
 
-pub fn set_refresh_token(account: &str, token: &str) -> Result<()> {
-    entry(account)?.set_password(token).map_err(keyring_error)
-}
-
-pub fn get_refresh_token(account: &str) -> Result<Option<String>> {
-    match entry(account)?.get_password() {
-        Ok(token) => Ok(Some(token)),
-        Err(keyring::Error::NoEntry) => Ok(None),
-        Err(e) => Err(keyring_error(e)),
+/// The keyring is keyed by `account`; the file is a single fixed path.
+pub fn set_refresh_token(store: TokenStore, account: &str, token: &str) -> Result<()> {
+    match store {
+        TokenStore::Keyring => entry(account)?.set_password(token).map_err(keyring_error),
+        TokenStore::File => write_private(&ensure_dir()?.join(TOKEN_FILE), token.as_bytes()),
     }
 }
 
-/// Returns whether an entry existed.
-pub fn delete_refresh_token(account: &str) -> Result<bool> {
-    match entry(account)?.delete_credential() {
-        Ok(()) => Ok(true),
-        Err(keyring::Error::NoEntry) => Ok(false),
-        Err(e) => Err(keyring_error(e)),
+pub fn get_refresh_token(store: TokenStore, account: &str) -> Result<Option<String>> {
+    match store {
+        TokenStore::Keyring => match entry(account)?.get_password() {
+            Ok(token) => Ok(Some(token)),
+            Err(keyring::Error::NoEntry) => Ok(None),
+            Err(e) => Err(keyring_error(e)),
+        },
+        TokenStore::File => read_token_file(&config_dir()?.join(TOKEN_FILE)),
     }
+}
+
+/// Returns whether a token existed.
+pub fn delete_refresh_token(store: TokenStore, account: &str) -> Result<bool> {
+    match store {
+        TokenStore::Keyring => match entry(account)?.delete_credential() {
+            Ok(()) => Ok(true),
+            Err(keyring::Error::NoEntry) => Ok(false),
+            Err(e) => Err(keyring_error(e)),
+        },
+        TokenStore::File => {
+            let path = config_dir()?.join(TOKEN_FILE);
+            match fs::remove_file(&path) {
+                Ok(()) => Ok(true),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+                Err(e) => Err(Error::io(format!("removing {}", path.display()), e)),
+            }
+        }
+    }
+}
+
+/// Reads the token file only if it is a regular file (not a symlink), owned
+/// by us, with no group/other access, like `ssh` does with private keys.
+fn read_token_file(path: &Path) -> Result<Option<String>> {
+    let refuse = |why: &str| {
+        Error::auth(format!("refusing {}: {why}", path.display()))
+            .hint("run `mg auth login --token-file` to write it again")
+    };
+    let meta = match fs::symlink_metadata(path) {
+        Ok(m) => m,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(Error::io(format!("reading {}", path.display()), e)),
+    };
+    if !meta.file_type().is_file() {
+        return Err(refuse("not a regular file"));
+    }
+    // /proc/self is owned by our effective uid; std has no getuid().
+    let uid = fs::metadata("/proc/self").map_err(|e| Error::io("reading /proc/self", e))?.uid();
+    if meta.uid() != uid {
+        return Err(refuse("not owned by the current user"));
+    }
+    if meta.mode() & 0o077 != 0 {
+        return Err(refuse("readable by group or others (chmod 600)"));
+    }
+    let file = fs::File::open(path)
+        .map_err(|e| Error::io(format!("reading {}", path.display()), e))?;
+    // The path must not have been swapped between the check and the open.
+    let opened = file.metadata().map_err(|e| Error::io(format!("reading {}", path.display()), e))?;
+    if (opened.dev(), opened.ino()) != (meta.dev(), meta.ino()) {
+        return Err(refuse("changed while being read"));
+    }
+    let mut text = String::new();
+    file.take(4096)
+        .read_to_string(&mut text)
+        .map_err(|e| Error::io(format!("reading {}", path.display()), e))?;
+    let token = text.trim();
+    if token.is_empty() {
+        return Err(refuse("empty"));
+    }
+    Ok(Some(token.to_string()))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn tmp_dir() -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("mg-test-{}", crate::auth::oauth::random_b64(8)));
+        fs::create_dir(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn token_file_round_trip_and_checks() {
+        let dir = tmp_dir();
+        let path = dir.join(TOKEN_FILE);
+        assert_eq!(read_token_file(&path).unwrap(), None);
+
+        write_private(&path, b"1//refresh").unwrap();
+        assert_eq!(fs::metadata(&path).unwrap().mode() & 0o777, 0o600);
+        assert_eq!(read_token_file(&path).unwrap().as_deref(), Some("1//refresh"));
+
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
+        assert!(read_token_file(&path).unwrap_err().message.contains("group or others"));
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+
+        let link = dir.join("link");
+        std::os::unix::fs::symlink(&path, &link).unwrap();
+        assert!(read_token_file(&link).unwrap_err().message.contains("not a regular file"));
+
+        fs::write(&path, "  \n").unwrap();
+        assert!(read_token_file(&path).unwrap_err().message.contains("empty"));
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn config_without_token_store_means_keyring() {
+        let c: Config = serde_json::from_str(r#"{"account":"a@b.c"}"#).unwrap();
+        assert_eq!(c.token_store, TokenStore::Keyring);
+        let c: Config = serde_json::from_str(r#"{"account":"a@b.c","token_store":"file"}"#).unwrap();
+        assert_eq!(c.token_store, TokenStore::File);
+    }
 
     #[test]
     fn parses_desktop_client_json() {
