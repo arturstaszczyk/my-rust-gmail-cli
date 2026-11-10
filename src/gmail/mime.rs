@@ -28,32 +28,36 @@ pub struct Walked {
 
 pub fn walk(payload: &Part) -> Walked {
     let mut acc = Walked::default();
-    walk_into(payload, &mut acc);
+    walk_into(payload, &mut acc, true);
     acc
 }
 
-fn walk_into(part: &Part, acc: &mut Walked) {
+/// `body_wanted` is false below a named part: a forwarded message's text must
+/// not become the outer body, but its attachments still count.
+fn walk_into(part: &Part, acc: &mut Walked, body_wanted: bool) {
     let mime = part.mime_type.as_deref().unwrap_or("").to_ascii_lowercase();
     let filename = part.filename.as_deref().unwrap_or("");
     let body = part.body.as_ref();
-    if !filename.is_empty() {
+    let named = !filename.is_empty();
+    // A named part without bytes (e.g. a message/rfc822 container) is not saveable.
+    if named && body.is_some_and(|b| b.attachment_id.is_some() || b.data.is_some()) {
         acc.attachments.push(Attachment {
             part: part.part_id.clone().unwrap_or_default(),
             attachment_id: body.and_then(|b| b.attachment_id.clone()),
             inline_data: body.and_then(|b| b.data.clone()),
             filename: filename.to_string(),
-            mime_type: mime,
+            mime_type: mime.clone(),
             size: body.and_then(|b| b.size).unwrap_or(0),
         });
-        return;
     }
-    if mime == "text/plain" && acc.text.is_none() {
+    let body_wanted = body_wanted && !named;
+    if body_wanted && mime == "text/plain" && acc.text.is_none() {
         acc.text = decode_part_text(part);
-    } else if mime == "text/html" && acc.html.is_none() {
+    } else if body_wanted && mime == "text/html" && acc.html.is_none() {
         acc.html = decode_part_text(part);
     }
     for child in &part.parts {
-        walk_into(child, acc);
+        walk_into(child, acc, body_wanted);
     }
 }
 
@@ -138,6 +142,22 @@ mod tests {
         assert_eq!(w.attachments[0].part, "0.1.1");
         assert_eq!(w.attachments[1].inline_data.as_deref(), Some("aGVsbG8"));
         assert_eq!(w.attachments[1].attachment_id, None);
+    }
+
+    #[test]
+    fn forwarded_message_attachments_without_its_body() {
+        let w = walked("message_forwarded.json");
+        // Fwd.eml (no bytes) and empty.bin (no bytes) are not listed.
+        let names: Vec<_> = w.attachments.iter().map(|a| a.filename.as_str()).collect();
+        assert_eq!(names, ["invoice.pdf"]);
+        assert_eq!(w.attachments[0].part, "1.0.1");
+        assert_eq!(
+            w.attachments[0].attachment_id.as_deref(),
+            Some("ANGjdJ_fwdpdf")
+        );
+        assert!(w.text.is_none(), "{:?}", w.text);
+        assert_eq!(w.html.as_deref(), Some("<p>See the forward.</p>"));
+        assert!(!body_text(&w).contains("Forwarded text"));
     }
 
     #[test]

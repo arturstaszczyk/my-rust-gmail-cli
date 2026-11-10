@@ -1,0 +1,97 @@
+{
+ "id": "19a0000000000005",
+ "threadId": "19a0000000000005",
+ "labelIds": [
+  "INBOX"
+ ],
+ "internalDate": "1793613600000",
+ "payload": {
+  "partId": "",
+  "mimeType": "multipart/mixed",
+  "filename": "",
+  "headers": [
+   {
+    "name": "From",
+    "value": "\"Jan Kowalski\" <jan@example.pl>"
+   },
+   {
+    "name": "To",
+    "value": "artur@example.com"
+   },
+   {
+    "name": "Subject",
+    "value": "Fwd: Faktura"
+   },
+   {
+    "name": "Date",
+    "value": "Mon, 2 Nov 2026 12:00:00 +0100"
+   }
+  ],
+  "body": {
+   "size": 0
+  },
+  "parts": [
+   {
+    "partId": "0",
+    "mimeType": "text/html",
+    "filename": "",
+    "headers": [],
+    "body": {
+     "size": 23,
+     "data": "PHA-U2VlIHRoZSBmb3J3YXJkLjwvcD4="
+    }
+   },
+   {
+    "partId": "1",
+    "mimeType": "message/rfc822",
+    "filename": "Fwd.eml",
+    "headers": [],
+    "body": {
+     "size": 0
+    },
+    "parts": [
+     {
+      "partId": "1.0",
+      "mimeType": "multipart/mixed",
+      "filename": "",
+      "headers": [],
+      "body": {
+       "size": 0
+      },
+      "parts": [
+       {
+        "partId": "1.0.0",
+        "mimeType": "text/plain",
+        "filename": "",
+        "headers": [],
+        "body": {
+         "size": 14,
+         "data": "Rm9yd2FyZGVkIHRleHQ="
+        }
+       },
+       {
+        "partId": "1.0.1",
+        "mimeType": "application/pdf",
+        "filename": "invoice.pdf",
+        "headers": [],
+        "body": {
+         "attachmentId": "ANGjdJ_fwdpdf",
+         "size": 54321
+        }
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "partId": "2",
+    "mimeType": "application/octet-stream",
+    "filename": "empty.bin",
+    "headers": [],
+    "body": {
+     "size": 0
+    }
+   }
+  ]
+ }
+}
