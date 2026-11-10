@@ -37,16 +37,26 @@ pub fn login() -> Result<View> {
 
     store::set_refresh_token(&account, &tokens.refresh)?;
     let mut config = store::load_config()?;
-    if let Some(old) = config.account.replace(account.clone())
-        && old != account
-    {
-        let _ = store::delete_refresh_token(&old);
-    }
+    let old = config.account.replace(account.clone());
     store::save_config(&config)?;
 
+    // Only drop the old token once the config no longer points at it.
+    let mut text = format!("Logged in as {account}");
+    let mut warning = None;
+    if let Some(old) = old.filter(|o| *o != account)
+        && let Err(e) = store::delete_refresh_token(&old)
+    {
+        let w = format!(
+            "could not remove the keyring entry for {old}: {}",
+            e.message
+        );
+        text.push_str(&format!("\nWarning: {w}"));
+        warning = Some(w);
+    }
+
     Ok(View {
-        json: json!({ "account": account }),
-        text: format!("Logged in as {account}"),
+        json: json!({ "account": account, "warning": warning }),
+        text,
     })
 }
 
