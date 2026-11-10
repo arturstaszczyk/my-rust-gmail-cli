@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mg — Plan</title>
+<style>
+:root{
+  --bg:#f7f7f5; --panel:#ffffff; --ink:#1d1f23; --muted:#62666e; --line:#e2e2de;
+  --accent:#2f5bd3; --accent-soft:#e8eefc;
+  --ok:#1f7a4d; --ok-soft:#e3f3ea;
+  --warn:#9a5b00; --warn-soft:#fbf0dc;
+  --bad:#b4282d; --bad-soft:#fbe6e6;
+  --m1:#2f5bd3; --m2:#7a4fc9; --m3:#c2410c;
+  --code:#f0f0ec;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#15171a; --panel:#1d2024; --ink:#e7e8ea; --muted:#9aa0a8; --line:#30343a;
+    --accent:#7aa2ff; --accent-soft:#1f2a44;
+    --ok:#5cc58f; --ok-soft:#183126;
+    --warn:#e0a54a; --warn-soft:#352914;
+    --bad:#f07a7e; --bad-soft:#3a1d1f;
+    --m1:#7aa2ff; --m2:#b593f0; --m3:#f08a52;
+    --code:#262a2f;
+  }
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+code,pre,.mono{font-family:ui-monospace,"JetBrains Mono","Fira Code",Menlo,monospace;font-size:.88em}
+code{background:var(--code);padding:.1em .35em;border-radius:4px}
+a{color:var(--accent)}
+.wrap{display:grid;grid-template-columns:220px minmax(0,1fr);gap:40px;max-width:1240px;margin:0 auto;padding:32px 24px 80px}
+nav{position:sticky;top:24px;align-self:start;font-size:.9rem}
+nav b{display:block;color:var(--muted);font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
+nav a{display:block;color:var(--ink);text-decoration:none;padding:4px 10px;border-left:2px solid var(--line)}
+nav a:hover{border-left-color:var(--accent);color:var(--accent)}
+@media (max-width:900px){.wrap{grid-template-columns:1fr}nav{display:none}}
+header{margin-bottom:28px}
+h1{font-size:2rem;line-height:1.2;margin:0 0 6px}
+h1 code{font-size:.85em}
+.sub{color:var(--muted);margin:0 0 18px;max-width:70ch}
+h2{font-size:1.35rem;margin:0 0 4px;padding-top:8px}
+h2 .n{color:var(--muted);font-weight:500;margin-right:8px}
+h3{font-size:1rem;margin:18px 0 8px}
+section{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px 26px;margin-bottom:22px}
+.lead{color:var(--muted);margin:0 0 16px}
+.badge{display:inline-block;font-size:.72rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
+  padding:3px 9px;border-radius:999px;background:var(--warn-soft);color:var(--warn);vertical-align:middle}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.fact{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.fact .k{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.fact .v{font-weight:600;margin-top:2px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.card{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:var(--bg)}
+.card h4{margin:0 0 4px;font-size:.95rem}
+.card p{margin:0;color:var(--muted);font-size:.92rem}
+/* flow */
+.flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:0;margin:8px 0 4px}
+.step{flex:1 1 160px;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:12px 14px;position:relative}
+.step .t{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.step .b{font-weight:600;margin-top:2px}
+.step .d{font-size:.86rem;color:var(--muted);margin-top:4px}
+.arrow{flex:0 0 34px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:1.3rem}
+@media (max-width:700px){.flow{flex-direction:column}.arrow{transform:rotate(90deg);height:28px}}
+.step.hl{border-color:var(--accent);background:var(--accent-soft)}
+.step.ok{border-color:var(--ok);background:var(--ok-soft)}
+.step.bad{border-color:var(--bad);background:var(--bad-soft)}
+/* tables */
+table{width:100%;border-collapse:collapse;font-size:.93rem}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+tr:last-child td{border-bottom:0}
+td code{white-space:nowrap}
+.tag{display:inline-block;font-size:.7rem;font-weight:700;padding:2px 7px;border-radius:5px;color:#fff;letter-spacing:.03em}
+.tag.m1{background:var(--m1)}.tag.m2{background:var(--m2)}.tag.m3{background:var(--m3)}
+.tag.gate{background:var(--bad)}
+.chip{display:inline-block;font-size:.75rem;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);margin:2px 4px 2px 0}
+/* tree */
+.tree{background:var(--code);border-radius:10px;padding:16px 18px;overflow-x:auto;font-size:.88rem;line-height:1.75}
+.tree .c{color:var(--muted)}
+.tree .dir{color:var(--accent);font-weight:600}
+/* architecture */
+.arch{display:grid;grid-template-columns:1fr 1.6fr 1fr;gap:14px;align-items:stretch}
+@media (max-width:820px){.arch{grid-template-columns:1fr}}
+.col{display:flex;flex-direction:column;gap:10px}
+.col > .lbl{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.box{border:1px solid var(--line);border-radius:9px;padding:9px 12px;background:var(--bg);font-size:.9rem}
+.box b{display:block;font-size:.9rem}
+.box span{color:var(--muted);font-size:.82rem}
+.bin{border:2px solid var(--accent);border-radius:12px;padding:12px;background:var(--accent-soft);display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.bin .box{background:var(--panel)}
+.bin .full{grid-column:1/-1}
+.bin .title{grid-column:1/-1;font-weight:700;color:var(--accent);font-size:.85rem}
+.host{border-style:dashed}
+/* security */
+.inv{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+.inv .card{border-left:4px solid var(--ok)}
+/* risks */
+.risk{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:var(--bg);display:grid;grid-template-columns:34px 1fr;gap:4px 12px}
+.risk .num{grid-row:span 3;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem}
+.risk.h .num{background:var(--bad-soft);color:var(--bad)}
+.risk.m .num{background:var(--warn-soft);color:var(--warn)}
+.risk.l .num{background:var(--ok-soft);color:var(--ok)}
+.risk h4{margin:0;font-size:.95rem}
+.risk p{margin:0;color:var(--muted);font-size:.9rem}
+.risk .st{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.risk.h .st{color:var(--bad)}.risk.m .st{color:var(--warn)}.risk.l .st{color:var(--ok)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.82rem;color:var(--muted);margin-bottom:12px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+/* timeline */
+.tl{display:grid;grid-template-columns:repeat(3,1fr);gap:0;position:relative;margin-top:8px}
+@media (max-width:820px){.tl{grid-template-columns:1fr}}
+.ms{padding:0 14px 0 0;position:relative}
+.ms .bar{height:8px;border-radius:4px;margin-bottom:14px}
+.ms:nth-child(1) .bar{background:var(--m1)}.ms:nth-child(2) .bar{background:var(--m2)}.ms:nth-child(3) .bar{background:var(--m3)}
+.ms h4{margin:0 0 2px}
+.ms .when{font-size:.8rem;color:var(--muted);margin-bottom:8px}
+.ms ul{margin:0;padding-left:18px;font-size:.92rem}
+.ms li{margin:3px 0}
+/* steps list */
+ol.steps{counter-reset:s;list-style:none;padding:0;margin:0}
+ol.steps li{counter-increment:s;position:relative;padding:10px 0 10px 46px;border-bottom:1px solid var(--line)}
+ol.steps li:last-child{border-bottom:0}
+ol.steps li::before{content:counter(s);position:absolute;left:0;top:9px;width:30px;height:30px;border-radius:50%;
+  background:var(--accent-soft);color:var(--accent);font-weight:700;display:flex;align-items:center;justify-content:center;font-size:.85rem}
+pre{background:var(--code);padding:12px 14px;border-radius:9px;overflow-x:auto;margin:6px 0}
+.check{list-style:none;padding:0;margin:0}
+.check li{padding:6px 0 6px 28px;position:relative}
+.check li::before{content:"";position:absolute;left:2px;top:11px;width:14px;height:14px;border:2px solid var(--muted);border-radius:3px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media (max-width:820px){.two{grid-template-columns:1fr}}
+.term{background:#111418;color:#d6dae0;border-radius:10px;padding:14px 16px;font-family:ui-monospace,Menlo,monospace;font-size:.84rem;line-height:1.6;overflow-x:auto}
+.term .p{color:#7aa2ff}.term .m{color:#8b929b}.term .r{color:#f07a7e}.term .g{color:#5cc58f}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav>
+  <b>Contents</b>
+  <a href="#context">1. Context</a>
+  <a href="#decisions">2. Decisions</a>
+  <a href="#arch">3. Architecture</a>
+  <a href="#deps">4. Dependencies</a>
+  <a href="#layout">5. Layout &amp; port map</a>
+  <a href="#commands">6. Commands</a>
+  <a href="#gate">7. Send gate</a>
+  <a href="#output">8. Output &amp; errors</a>
+  <a href="#security">9. Security design</a>
+  <a href="#risks">10. Weak sides</a>
+  <a href="#milestones">11. Milestones</a>
+  <a href="#setup">12. Setup &amp; install</a>
+  <a href="#verify">13. Verification</a>
+</nav>
+
+<main>
+<header>
+  <h1><code>my-google-cli</code> &mdash; a single-binary Rust Gmail CLI for agents <span class="badge">Planning only</span></h1>
+  <p class="sub">Our own CLI on the Gmail REST API: agent-first, readable for humans, modelled on the <code>hey</code> command style. Binary name: <code>mg</code>.</p>
+  <div class="facts">
+    <div class="fact"><div class="k">Binary</div><div class="v mono">mg</div></div>
+    <div class="fact"><div class="k">Language</div><div class="v">Rust, blocking I/O</div></div>
+    <div class="fact"><div class="k">OAuth scope</div><div class="v mono">gmail.modify</div></div>
+    <div class="fact"><div class="k">Accounts</div><div class="v">1 (keyed by email)</div></div>
+    <div class="fact"><div class="k">Network hosts</div><div class="v">3, hardcoded</div></div>
+    <div class="fact"><div class="k">Milestones</div><div class="v">M1 &rarr; M3</div></div>
+  </div>
+</header>
+
+<section id="context">
+  <h2><span class="n">1</span>Context</h2>
+  <div class="grid2" style="margin:12px 0 18px">
+    <div class="card" style="border-left:4px solid var(--bad)"><h4>Problem</h4>
+      <p>The claude.ai Gmail connector can't download attachments. The third-party <code>gmail-cli</code> (Bun/TS) works, but isn't trusted and needs Bun.</p></div>
+    <div class="card" style="border-left:4px solid var(--ok)"><h4>Goal</h4>
+      <p>Our own single static-ish Rust binary on the Gmail REST API, agent-first with readable human output.</p></div>
+  </div>
+  <h3>First concrete use case: find an email, save its PDF, let the agent read it</h3>
+  <div class="flow">
+    <div class="step"><div class="t">Step 1</div><div class="b mono">mg search</div><div class="d">Find the thread by Gmail query</div></div>
+    <div class="arrow">&rarr;</div>
+    <div class="step"><div class="t">Step 2</div><div class="b mono">mg attachment save</div><div class="d">Write PDF to <code>--out</code> dir, print path only</div></div>
+    <div class="arrow">&rarr;</div>
+    <div class="step ok"><div class="t">Step 3</div><div class="b">Claude reads the PDF</div><div class="d">With its Read tool, from disk</div></div>
+  </div>
+</section>
+
+<section id="decisions">
+  <h2><span class="n">2</span>Decisions made</h2>
+  <div class="grid3" style="margin-top:12px">
+    <div class="card"><h4>Scope</h4><p>Gmail read + attachments, organize, drafts/send. No Calendar/Drive.</p></div>
+    <div class="card"><h4>Output</h4><p>Agent-first: compact JSON when piped, text in a TTY.</p></div>
+    <div class="card"><h4>Token storage</h4><p>OS keyring (Secret Service).</p></div>
+    <div class="card"><h4>Sending</h4><p>Agents create drafts only. Sending needs a human at a TTY.</p></div>
+    <div class="card"><h4>OAuth app</h4><p>"In production", unverified. Refresh token doesn't expire after 7 days.</p></div>
+    <div class="card"><h4>Accounts</h4><p>Single account.</p></div>
+    <div class="card"><h4>Toolchain</h4><p>Rust via mise.</p></div>
+    <div class="card"><h4>Distribution</h4><p>Local build only. No CI or releases.</p></div>
+  </div>
+</section>
+
+<section id="arch">
+  <h2><span class="n">3</span>Architecture</h2>
+  <p class="lead">Who calls <code>mg</code>, what's inside the binary, and the only things it touches outside.</p>
+  <div class="arch">
+    <div class="col">
+      <div class="lbl">Callers</div>
+      <div class="box"><b>Agent (Claude Code Bash)</b><span>Piped, no TTY &rarr; JSON. Cannot send.</span></div>
+      <div class="box"><b>Human in a terminal</b><span>TTY &rarr; aligned text. Only one who can run <code>draft send</code>.</span></div>
+    </div>
+    <div class="col">
+      <div class="lbl">Inside the <code>mg</code> binary</div>
+      <div class="bin">
+        <div class="title">src/</div>
+        <div class="box full"><b>main.rs</b><span>clap definitions, dispatch</span></div>
+        <div class="box"><b>gmail/*</b><span>search, thread, attachment, label, draft, mime</span></div>
+        <div class="box"><b>api.rs</b><span>bearer auth, auto-refresh, 429/5xx backoff</span></div>
+        <div class="box"><b>auth/oauth.rs</b><span>PKCE + loopback, exchange/refresh</span></div>
+        <div class="box"><b>auth/store.rs</b><span>keyring + client config</span></div>
+        <div class="box"><b>output.rs</b><span>JSON/text, sanitizing, truncation</span></div>
+        <div class="box"><b>confirm.rs</b><span>TTY gate via <code>/dev/tty</code></span></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="lbl">Outside world</div>
+      <div class="box host"><b class="mono">gmail.googleapis.com</b><span>Gmail REST API</span></div>
+      <div class="box host"><b class="mono">oauth2.googleapis.com</b><span>Token exchange, refresh, revoke</span></div>
+      <div class="box host"><b class="mono">accounts.google.com</b><span>Browser consent</span></div>
+      <div class="box"><b>OS keyring</b><span>Refresh token only</span></div>
+      <div class="box"><b class="mono">~/.config/my-google-cli/</b><span>client.json (0600, dir 0700)</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="deps">
+  <h2><span class="n">4</span>Dependencies</h2>
+  <p class="lead">No async runtime, no OpenSSL. Pure-Rust TLS.</p>
+  <table>
+    <tr><th>Purpose</th><th>Crate</th><th>Why</th></tr>
+    <tr><td>CLI</td><td><code>clap</code> (derive)</td><td>Argument parsing</td></tr>
+    <tr><td>HTTP</td><td><code>ureq</code> 3 + rustls</td><td>Blocking HTTPS, no OpenSSL</td></tr>
+    <tr><td>JSON</td><td><code>serde</code>, <code>serde_json</code></td><td>API types and output</td></tr>
+    <tr><td>Secrets</td><td><code>keyring</code> 3</td><td>Secret Service (gnome-keyring/KeePassXC). Features: <span class="chip">sync-secret-service</span><span class="chip">crypto-rust</span><span class="chip">vendored</span> &mdash; dbus vendored, no runtime lib</td></tr>
+    <tr><td>Crypto</td><td><code>sha2</code>, <code>getrandom</code>, <code>base64</code></td><td>PKCE, state, base64url</td></tr>
+    <tr><td>Compose</td><td><code>mail-builder</code></td><td>RFC 5322, proper header encoding, prevents CRLF header injection</td></tr>
+    <tr><td>Reading</td><td><code>html2text</code></td><td>HTML bodies to text</td></tr>
+    <tr><td>Charsets</td><td><code>encoding_rs</code></td><td>Non-UTF-8 parts (ISO-8859-2 is common in Polish mail)</td></tr>
+    <tr><td>Paths</td><td><code>directories</code></td><td>XDG config path</td></tr>
+    <tr><td>Loopback</td><td><code>std::net::TcpListener</code></td><td>127.0.0.1:0, no HTTP server crate</td></tr>
+  </table>
+  <h3>Release profile</h3>
+  <span class="chip mono">lto = true</span><span class="chip mono">strip = true</span><span class="chip mono">codegen-units = 1</span><span class="chip mono">panic = "abort"</span>
+</section>
+
+<section id="layout">
+  <h2><span class="n">5</span>Layout &amp; port map</h2>
+  <div class="two" style="margin-top:12px">
+    <div>
+      <h3 style="margin-top:0">Source tree</h3>
+<div class="tree mono"><span class="dir">my-google-cli/</span>
+  Cargo.toml
+  <span class="dir">src/</span>
+    main.rs            <span class="c">clap, dispatch</span>
+    output.rs          <span class="c">JSON/text, sanitize, truncate</span>
+    confirm.rs         <span class="c">TTY gate (/dev/tty)</span>
+    api.rs             <span class="c">HTTP, auth, backoff</span>
+    <span class="dir">auth/</span>
+      oauth.rs         <span class="c">PKCE + loopback</span>
+      store.rs         <span class="c">keyring + config</span>
+    <span class="dir">gmail/</span>
+      search.rs  thread.rs  attachment.rs
+      label.rs   draft.rs   mime.rs
+  <span class="dir">tests/fixtures/</span>
+    *.json             <span class="c">recorded API responses</span></div>
+    </div>
+    <div>
+      <h3 style="margin-top:0">Port the logic, not the code, from <code>gmail-cli</code></h3>
+      <table>
+        <tr><th>From (TS)</th><th>Logic</th><th>To (Rust)</th></tr>
+        <tr><td><code>auth/oauth.ts</code></td><td>PKCE S256, state check, loopback, <code>access_type=offline</code> + <code>prompt=consent</code></td><td><code>auth/oauth.rs</code></td></tr>
+        <tr><td><code>gmail/message.ts</code></td><td><code>walkParts</code>, <code>buildReplyHeaders</code>, <code>pickSendAs</code></td><td><code>gmail/mime.rs</code>, <code>draft.rs</code></td></tr>
+        <tr><td><code>google/api.ts</code></td><td>Retry/backoff policy</td><td><code>api.rs</code></td></tr>
+        <tr><td><code>commands/attachments.ts</code></td><td><code>safeFilename</code></td><td><code>gmail/attachment.rs</code></td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="commands">
+  <h2><span class="n">6</span>Commands (hey-style)</h2>
+  <div class="legend">
+    <span><span class="tag m1">M1</span> read &amp; attachments</span>
+    <span><span class="tag m2">M2</span> organize</span>
+    <span><span class="tag m3">M3</span> drafts</span>
+    <span><span class="tag gate">GATED</span> human at TTY only</span>
+  </div>
+  <table>
+    <tr><th></th><th>Command</th><th>Notes</th></tr>
+    <tr><td><span class="tag m1">M1</span></td><td><code>mg auth setup --client-json &lt;path&gt;</code></td><td>Imports the Desktop OAuth client JSON to <code>~/.config/my-google-cli/client.json</code></td></tr>
+    <tr><td><span class="tag m1">M1</span></td><td><code>mg auth login | logout | status</code></td><td>Login opens the browser; logout also revokes the token at Google</td></tr>
+    <tr><td><span class="tag m1">M1</span></td><td><code>mg search "&lt;query&gt;" [--limit N]</code></td><td>Thread summaries: id, date, from, subject, snippet, attachment count</td></tr>
+    <tr><td><span class="tag m1">M1</span></td><td><code>mg box inbox|unread|starred|sent</code></td><td>Shortcuts for common searches</td></tr>
+    <tr><td><span class="tag m1">M1</span></td><td><code>mg thread &lt;id&gt; [--full] [--max-chars N]</code></td><td>Plain-text bodies (HTML converted); quoted history stripped unless <code>--full</code>; default 4000 chars per message</td></tr>
+    <tr><td><span class="tag m1">M1</span></td><td><code>mg attachment list &lt;thread-or-msg-id&gt;</code></td><td></td></tr>
+    <tr><td><span class="tag m1">M1</span></td><td><code>mg attachment save &lt;msg-id&gt; [&lt;att-id&gt;] --out &lt;dir&gt;</code></td><td>Sanitized filenames, never overwrites (adds <code>-1</code>, <code>-2</code>), prints saved paths only</td></tr>
+    <tr><td><span class="tag m2">M2</span></td><td><code>mg label list|add|remove</code></td><td rowspan="2">Accept multiple ids</td></tr>
+    <tr><td><span class="tag m2">M2</span></td><td><code>mg archive | seen | unseen | trash | spam</code></td></tr>
+    <tr><td><span class="tag m3">M3</span></td><td><code>mg compose | reply | forward</code></td><td>Always create a <b>draft</b>; output draft id + summary</td></tr>
+    <tr><td><span class="tag m3">M3</span></td><td><code>mg draft list | show | delete</code></td><td></td></tr>
+    <tr style="background:var(--bad-soft)"><td><span class="tag gate">GATED</span></td><td><code>mg draft send &lt;id&gt;</code></td><td>Preview on <code>/dev/tty</code>, user must type <code>send</code>. No <code>--yes</code>. Fails without a TTY.</td></tr>
+  </table>
+</section>
+
+<section id="gate">
+  <h2><span class="n">7</span>The send gate</h2>
+  <p class="lead">Agents can only create drafts. Sending is a separate step that needs a real person at a real terminal.</p>
+  <div class="flow">
+    <div class="step hl"><div class="t">Agent</div><div class="b mono">mg reply &lt;id&gt; --body …</div><div class="d">Creates a draft, prints draft id</div></div>
+    <div class="arrow">&rarr;</div>
+    <div class="step"><div class="t">Anyone</div><div class="b mono">mg draft send &lt;id&gt;</div><div class="d"><code>confirm.rs</code> opens <code>/dev/tty</code></div></div>
+    <div class="arrow">&rarr;</div>
+    <div class="step" style="flex:1.4 1 220px;display:flex;flex-direction:column;gap:8px;background:transparent;border:0;padding:0">
+      <div class="step bad" style="flex:1"><div class="t">No TTY (agent, pipe)</div><div class="b">Refused</div><div class="d">Exits with an error, nothing sent</div></div>
+      <div class="step ok" style="flex:1"><div class="t">Real TTY</div><div class="b">Preview &rarr; type <code>send</code> &rarr; sent</div><div class="d">Anything else aborts</div></div>
+    </div>
+  </div>
+  <div class="term" style="margin-top:16px"><span class="p">$</span> mg draft send r-4821
+<span class="m">To:      kazimierz@example.pl
+Subject: Re: Naliczenie
+---
+Dziękuję, potwierdzam odbiór...</span>
+Type "send" to send this draft: <span class="g">send</span>
+Sent.
+
+<span class="p">$</span> mg draft send r-4821 | cat
+<span class="r">{"error":"no TTY: draft send requires a human at a terminal","hint":"run it yourself in a terminal"}</span></div>
+  <p class="lead" style="margin-top:8px;font-size:.85rem">Illustrative output; exact wording is decided at M3.</p>
+</section>
+
+<section id="output">
+  <h2><span class="n">8</span>Output &amp; errors</h2>
+  <div class="grid3" style="margin-top:12px">
+    <div class="card"><h4>TTY</h4><p>Aligned text for humans.</p></div>
+    <div class="card"><h4>Piped</h4><p>Compact JSON for agents.</p></div>
+    <div class="card"><h4>Overrides</h4><p><code>--json</code> / <code>--text</code></p></div>
+  </div>
+  <h3>Errors go to stderr as <code>{"error":…, "hint":…}</code></h3>
+  <table>
+    <tr><th>Exit code</th><th>Meaning</th></tr>
+    <tr><td><code>0</code></td><td>Success</td></tr>
+    <tr><td><code>1</code></td><td>Usage error</td></tr>
+    <tr><td><code>2</code></td><td>Auth error</td></tr>
+    <tr><td><code>3</code></td><td>API error</td></tr>
+  </table>
+</section>
+
+<section id="security">
+  <h2><span class="n">9</span>Security design</h2>
+  <h3>Scope: <code>gmail.modify</code></h3>
+  <div class="two">
+    <div class="card" style="border-left:4px solid var(--ok)"><h4>Reachable</h4><p>Read, labels, trash, drafts, send.</p></div>
+    <div class="card" style="border-left:4px solid var(--bad)"><h4>Unreachable by design</h4><p>Permanent delete, settings (filters, forwarding).</p></div>
+  </div>
+  <h3>Where secrets live</h3>
+  <table>
+    <tr><th>Secret</th><th>Stored in</th><th>Lifetime</th></tr>
+    <tr><td>Refresh token</td><td>OS keyring only</td><td>Long-lived (production app)</td></tr>
+    <tr><td>Access token</td><td>Memory only</td><td>One run; refreshed each run (cheap)</td></tr>
+    <tr><td>Client id / secret</td><td>Config file (0600)</td><td>A desktop client secret isn't really secret</td></tr>
+  </table>
+  <h3>OAuth login flow</h3>
+  <div class="flow">
+    <div class="step"><div class="t">1</div><div class="b">Bind 127.0.0.1:0</div><div class="d">Random port</div></div>
+    <div class="arrow">&rarr;</div>
+    <div class="step"><div class="t">2</div><div class="b">Open browser</div><div class="d">PKCE S256 challenge + random state</div></div>
+    <div class="arrow">&rarr;</div>
+    <div class="step"><div class="t">3</div><div class="b">Single redirect</div><div class="d">Check state, then close. 5-min timeout</div></div>
+    <div class="arrow">&rarr;</div>
+    <div class="step ok"><div class="t">4</div><div class="b">Exchange code</div><div class="d">Refresh token &rarr; keyring</div></div>
+  </div>
+  <h3>Invariants</h3>
+  <div class="inv">
+    <div class="card"><h4>Hardcoded hosts only</h4><p><code>gmail.googleapis.com</code>, <code>oauth2.googleapis.com</code> (incl. <code>/revoke</code>), <code>accounts.google.com</code>.</p></div>
+    <div class="card"><h4>Sanitized output</h4><p>C0/C1 controls and ANSI/OSC escapes stripped from all text. JSON escaped by serde. Fixes the <code>gmail-cli</code> weakness.</p></div>
+    <div class="card"><h4>Validated ids</h4><p>Message, thread and attachment ids must match <code>[A-Za-z0-9_-]+</code> before going into URLs.</p></div>
+    <div class="card"><h4>No telemetry</h4><p>No update checks. Writes only config, keyring and saved attachments.</p></div>
+  </div>
+</section>
+
+<section id="risks">
+  <h2><span class="n">10</span>Weak sides (accepted or mitigated)</h2>
+  <div class="legend">
+    <span><span class="dot" style="background:var(--bad)"></span>Accepted, notable impact</span>
+    <span><span class="dot" style="background:var(--warn)"></span>Accepted, limited impact</span>
+    <span><span class="dot" style="background:var(--ok)"></span>Mitigated</span>
+  </div>
+  <div class="grid2">
+    <div class="risk h"><div class="num">1</div><h4>Draft-only is enforced by the CLI, not Google</h4><p><code>gmail.modify</code> can send. A leaked refresh token can send mail as you. No Google scope allows drafts but blocks sending.</p><div class="st">Accepted</div></div>
+    <div class="risk h"><div class="num">2</div><h4>Keyring doesn't isolate apps</h4><p>Any process running as you on an unlocked session can read the token. Protects against plain-file leaks, not same-user malware.</p><div class="st">Accepted</div></div>
+    <div class="risk m"><div class="num">3</div><h4>Unverified production app</h4><p>Warning at every login. Google could tighten the policy later.</p><div class="st">Accepted</div></div>
+    <div class="risk h"><div class="num">4</div><h4>Prompt injection</h4><p>Email content flows into the agent's context. The draft gate limits damage but can't stop the agent being misled while reading.</p><div class="st">Partly mitigated</div></div>
+    <div class="risk m"><div class="num">5</div><h4>Single account</h4><p>Other addresses unreachable. Keyring keyed by email keeps a later <code>--account</code> cheap.</p><div class="st">Accepted</div></div>
+    <div class="risk l"><div class="num">6</div><h4>Messy real-world mail</h4><p>Charsets, broken MIME, giant HTML. <code>encoding_rs</code>, truncation, fixture tests. Edge cases will remain.</p><div class="st">Mitigated</div></div>
+    <div class="risk l"><div class="num">7</div><h4>Quotas</h4><p>Per-user rate limits. Use <code>threads.get</code> over per-message calls; back off on 429.</p><div class="st">Mitigated</div></div>
+    <div class="risk m"><div class="num">8</div><h4>Maintenance</h4><p>You own it: <code>cargo update</code> + <code>cargo audit</code> now and then.</p><div class="st">Accepted</div></div>
+  </div>
+</section>
+
+<section id="milestones">
+  <h2><span class="n">11</span>Milestones</h2>
+  <div class="tl">
+    <div class="ms"><div class="bar"></div><h4>M1 &mdash; today's need</h4><div class="when">Closes the PDF loop</div>
+      <ul><li>Project skeleton</li><li>Auth: setup / login / status / logout</li><li><code>search</code>, <code>box</code>, <code>thread</code></li><li><code>attachment list / save</code></li><li>Output switch + sanitizing</li></ul></div>
+    <div class="ms"><div class="bar"></div><h4>M2 &mdash; organize</h4><div class="when">Inbox housekeeping</div>
+      <ul><li>Labels list / add / remove</li><li>archive, seen / unseen</li><li>trash, spam</li></ul></div>
+    <div class="ms"><div class="bar"></div><h4>M3 &mdash; drafts</h4><div class="when">Write, never auto-send</div>
+      <ul><li>compose / reply / forward as drafts</li><li><code>draft list / show / delete</code></li><li>Gated <code>draft send</code></li></ul></div>
+  </div>
+</section>
+
+<section id="setup">
+  <h2><span class="n">12</span>One-time setup <span style="color:var(--muted);font-weight:400;font-size:.9rem">(yours, about 5 minutes)</span></h2>
+  <ol class="steps">
+    <li>Install the toolchain: <code>mise use -g rust</code></li>
+    <li>Google Cloud console: create a project and enable the Gmail API.</li>
+    <li>OAuth consent screen: External, add the <code>gmail.modify</code> scope, click <b>Publish app</b> (move to production).</li>
+    <li>Credentials: OAuth client ID, type <b>Desktop app</b>, download the JSON.</li>
+    <li><code>mg auth setup --client-json ~/Downloads/client_secret_*.json</code>, then <code>mg auth login</code>. Click through the "unverified app" warning once.</li>
+  </ol>
+  <div class="two" style="margin-top:16px">
+    <div><h3>Install</h3>
+<pre>cargo build --release
+cp target/release/mg ~/.local/bin/</pre></div>
+    <div><h3>Uninstall</h3>
+<pre>rm ~/.local/bin/mg
+rm -rf ~/.config/my-google-cli
+secret-tool clear service my-google-cli</pre>
+      <p style="margin:4px 0 0;color:var(--muted);font-size:.9rem">Then revoke access at myaccount.google.com/permissions.</p></div>
+  </div>
+</section>
+
+<section id="verify">
+  <h2><span class="n">13</span>Verification</h2>
+  <div class="two" style="margin-top:12px">
+    <div>
+      <h3 style="margin-top:0">Unit tests &mdash; <code>cargo test</code></h3>
+      <ul class="check">
+        <li>PKCE test vector</li>
+        <li>MIME walk on fixtures: multipart, nested, ISO-8859-2, HTML-only</li>
+        <li>Reply headers</li>
+        <li>Filename sanitizing</li>
+        <li>Control-char stripping</li>
+        <li>Id validation</li>
+      </ul>
+      <h3>Static checks</h3>
+      <ul class="check"><li><code>cargo clippy -- -D warnings</code></li><li><code>cargo audit</code></li></ul>
+    </div>
+    <div>
+      <h3 style="margin-top:0">End-to-end</h3>
+      <ul class="check">
+        <li><code>mg search 'NALICZENIE Kazimierza'</code> &rarr; <code>mg attachment save &lt;msg-id&gt; --out /tmp/x</code> &rarr; Claude reads the PDF</li>
+        <li><code>ldd target/release/mg</code> shows only libc (plus libdbus if not vendored)</li>
+        <li>M3: <code>mg reply &lt;id&gt; --body test</code> creates a draft visible in Gmail</li>
+        <li>M3: piped <code>mg draft send &lt;id&gt;</code> is refused</li>
+        <li>M3: in a real terminal the confirmation prompt appears</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<p style="color:var(--muted);font-size:.85rem;text-align:center">Generated from <code>PLAN.md</code>. <code>PLAN.md</code> remains the source of truth.</p>
+</main>
+</div>
+</body>
+</html>

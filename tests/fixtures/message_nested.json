@@ -1,0 +1,109 @@
+{
+ "id": "19a0000000000002",
+ "threadId": "19a0000000000002",
+ "labelIds": [
+  "INBOX"
+ ],
+ "internalDate": "1793613600000",
+ "payload": {
+  "partId": "",
+  "mimeType": "multipart/mixed",
+  "filename": "",
+  "headers": [
+   {
+    "name": "From",
+    "value": "\"Jan Kowalski\" <jan@example.pl>"
+   },
+   {
+    "name": "To",
+    "value": "artur@example.com"
+   },
+   {
+    "name": "Subject",
+    "value": "NALICZENIE Kazimierza 11/2026"
+   },
+   {
+    "name": "Date",
+    "value": "Mon, 2 Nov 2026 11:00:00 +0100"
+   }
+  ],
+  "body": {
+   "size": 0
+  },
+  "parts": [
+   {
+    "partId": "0",
+    "mimeType": "multipart/related",
+    "filename": "",
+    "headers": [],
+    "body": {
+     "size": 0
+    },
+    "parts": [
+     {
+      "partId": "0.0",
+      "mimeType": "multipart/alternative",
+      "filename": "",
+      "headers": [],
+      "body": {
+       "size": 0
+      },
+      "parts": [
+       {
+        "partId": "0.0.0",
+        "mimeType": "text/plain",
+        "filename": "",
+        "headers": [],
+        "body": {
+         "size": 10,
+         "data": "T3V0ZXIgdGV4dA=="
+        }
+       }
+      ]
+     },
+     {
+      "partId": "0.1",
+      "mimeType": "multipart/alternative",
+      "filename": "",
+      "headers": [],
+      "body": {
+       "size": 0
+      },
+      "parts": [
+       {
+        "partId": "0.1.0",
+        "mimeType": "text/plain",
+        "filename": "",
+        "headers": [],
+        "body": {
+         "size": 10,
+         "data": "SW5uZXIgdGV4dA=="
+        }
+       },
+       {
+        "partId": "0.1.1",
+        "mimeType": "image/png",
+        "filename": "logo.png",
+        "headers": [],
+        "body": {
+         "attachmentId": "ANGjdJ_logo",
+         "size": 2048
+        }
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "partId": "1",
+    "mimeType": "text/plain",
+    "filename": "notes.txt",
+    "headers": [],
+    "body": {
+     "size": 5,
+     "data": "aGVsbG8"
+    }
+   }
+  ]
+ }
+}

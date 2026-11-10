@@ -1,0 +1,131 @@
+{
+ "id": "19a0000000000001",
+ "historyId": "1",
+ "messages": [
+  {
+   "id": "19a0000000000001",
+   "threadId": "19a0000000000001",
+   "labelIds": [
+    "INBOX",
+    "UNREAD"
+   ],
+   "snippet": "Dzień dobry, w załączniku faktura.",
+   "internalDate": "1793613600000",
+   "payload": {
+    "partId": "",
+    "mimeType": "multipart/mixed",
+    "filename": "",
+    "headers": [
+     {
+      "name": "From",
+      "value": "\"Jan Kowalski\" <jan@example.pl>"
+     },
+     {
+      "name": "To",
+      "value": "artur@example.com"
+     },
+     {
+      "name": "Subject",
+      "value": "NALICZENIE Kazimierza 11/2026"
+     },
+     {
+      "name": "Date",
+      "value": "Mon, 2 Nov 2026 11:00:00 +0100"
+     }
+    ],
+    "body": {
+     "size": 0
+    },
+    "parts": [
+     {
+      "partId": "0",
+      "mimeType": "multipart/alternative",
+      "filename": "",
+      "headers": [],
+      "body": {
+       "size": 0
+      },
+      "parts": [
+       {
+        "partId": "0.0",
+        "mimeType": "text/plain",
+        "filename": "",
+        "headers": [
+         {
+          "name": "Content-Type",
+          "value": "text/plain; charset=\"UTF-8\""
+         }
+        ],
+        "body": {
+         "size": 40,
+         "data": "RHppZcWEIGRvYnJ5LAp3IHphxYLEhWN6bmlrdSBmYWt0dXJhLgo="
+        }
+       },
+       {
+        "partId": "0.1",
+        "mimeType": "text/html",
+        "filename": "",
+        "headers": [
+         {
+          "name": "Content-Type",
+          "value": "text/html; charset=\"UTF-8\""
+         }
+        ],
+        "body": {
+         "size": 60,
+         "data": "PHA-RHppZcWEIGRvYnJ5LDxicj53IHphxYLEhWN6bmlrdSA8Yj5mYWt0dXJhPC9iPi48L3A-"
+        }
+       }
+      ]
+     },
+     {
+      "partId": "1",
+      "mimeType": "application/pdf",
+      "filename": "Faktura 11/2026.pdf",
+      "headers": [
+       {
+        "name": "Content-Type",
+        "value": "application/pdf; name=\"Faktura 11/2026.pdf\""
+       }
+      ],
+      "body": {
+       "attachmentId": "ANGjdJ_att1",
+       "size": 123456
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "19a0000000000005",
+   "threadId": "19a0000000000001",
+   "labelIds": [
+    "SENT"
+   ],
+   "internalDate": "1793617200000",
+   "payload": {
+    "partId": "",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+     {
+      "name": "From",
+      "value": "Artur <artur@example.com>"
+     },
+     {
+      "name": "To",
+      "value": "jan@example.pl"
+     },
+     {
+      "name": "Subject",
+      "value": "Re: NALICZENIE Kazimierza 11/2026"
+     }
+    ],
+    "body": {
+     "size": 1,
+     "data": "RHppxJlrdWrEmSwgcG90d2llcmR6YW0uCgpXIGRuaXUgMi4xMS4yMDI2IG8gMTE6MDAgSmFuIEtvd2Fsc2tpIDxqYW5AZXhhbXBsZS5wbD4gbmFwaXNhxYIoYSk6Cj4gRHppZcWEIGRvYnJ5LAo-IHcgemHFgsSFY3puaWt1IGZha3R1cmEuCg=="
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,36 @@
+{
+ "id": "19a0000000000003",
+ "threadId": "19a0000000000003",
+ "internalDate": "1793613600000",
+ "payload": {
+  "partId": "",
+  "mimeType": "text/plain",
+  "filename": "",
+  "headers": [
+   {
+    "name": "From",
+    "value": "\"Jan Kowalski\" <jan@example.pl>"
+   },
+   {
+    "name": "To",
+    "value": "artur@example.com"
+   },
+   {
+    "name": "Subject",
+    "value": "NALICZENIE Kazimierza 11/2026"
+   },
+   {
+    "name": "Date",
+    "value": "Mon, 2 Nov 2026 11:00:00 +0100"
+   },
+   {
+    "name": "Content-Type",
+    "value": "text/plain; charset=\"ISO-8859-2\""
+   }
+  ],
+  "body": {
+   "size": 17,
+   "data": "WmG_87PmIGfqtmyxIGphvPE="
+  }
+ }
+}

@@ -1,0 +1,28 @@
+[package]
+name = "my-google-cli"
+version = "0.1.0"
+edition = "2024"
+description = "Gmail from the command line, built for agents"
+publish = false
+
+[[bin]]
+name = "mg"
+path = "src/main.rs"
+
+[dependencies]
+base64 = "0.23.1"
+clap = { version = "4.6.7", features = ["derive"] }
+encoding_rs = "0.8.44"
+getrandom = "0.4.3"
+html2text = "0.17.4"
+keyring = { version = "3", features = ["sync-secret-service", "crypto-rust", "vendored"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+sha2 = "0.11.1"
+ureq = { version = "3", features = ["json"] }
+
+[profile.release]
+lto = true
+strip = true
+codegen-units = 1
+panic = "abort"
