@@ -1,15 +1,28 @@
 # Plan: `my-google-cli`, a single-binary Rust Gmail CLI for agents
 
 ## Status (2026-11-10)
-- **M1: code complete, not yet tested end-to-end.** `cargo test` (39 tests) and `cargo clippy --all-targets -- -D warnings` pass, and the release build works. Nothing has run against the live Gmail API yet: that needs the one-time setup below plus `mg auth login`.
-- **M1 reopened for headless login** (see "Headless login" below): `mg auth login --no-browser` and an opt-in refresh-token file for machines with no keyring. Implemented; not yet tested against live Google.
+- **M1: code complete, including headless login; not yet tested end-to-end.** `cargo test` (47 tests) and `cargo clippy --all-targets -- -D warnings` pass, and the release build works. Nothing has run against the live Gmail API yet: that needs the one-time setup below plus `mg auth login`.
 - **M2, M3:** not started.
-- **Toolchain:** Rust 1.99.1 via mise. The repo is local git (`master`, no remote) with no commits yet.
+- **Repo:** GitHub `arturstaszczyk/my-rust-gmail-cli`, branch `master`. Changes go through PRs.
+- **Toolchain:** Rust 1.99.1 via mise (global). `mise.toml` in the repo pins only `gh`.
 - **Not run yet:** `cargo audit`, because `cargo-audit` is not installed (`cargo install cargo-audit`).
+- **Formatting:** `cargo fmt --check` fails on `master`; the code was never run through rustfmt. A single repo-wide `cargo fmt` commit is pending.
 - **To check on the first live run:**
   - Partial-response `fields` mask in `search`.
-  - Loopback login in a real browser.
+  - Loopback login in a real browser, and `--no-browser` paste login over SSH.
   - Charset handling of real ISO-8859-2 mail.
+  - Attachments inside a real forwarded message (`message/rfc822`); the fixture is synthetic.
+
+Done since the first commit (2026-11-10):
+
+| PR | What |
+|---|---|
+| #5 (issue #4) | `auth login`: save `config.json` before deleting the old account's keyring token; a failed delete is a warning (`warning` in JSON), not an error. |
+| #6 (issue #1) | `thread`: cut at an attribution line ("… wrote:", "… pisze:") only when the next non-blank line is quoted (`>`). A plain "She wrote:" line no longer empties the body. |
+| #7 (issue #3) | `thread` / `attachment list` with a message id: a network or 5xx error from the message lookup is returned as is, not as "not found". Test-only stub server for `Gmail` (`Gmail::for_test`, `#[cfg(test)]` only). |
+| #8 (issue #2) | MIME walk: a named part is listed only if it has an attachment id or inline data, and its children are walked for attachments (not for body text), so a PDF inside a forwarded `.eml` is found. `attachment save` errors on a part with no data instead of writing a 0-byte file. |
+| #9 | Plan: headless login. |
+| #10 | Headless login: `auth login --no-browser` and `--token-file` (see Security design). Review fixes: a file-to-file login saves `config.json` before replacing `refresh_token`; `logout` names the store it cleared. |
 
 ## Context
 The claude.ai Gmail connector can't download attachments. The third-party `gmail-cli` (Bun/TS) works but isn't trusted and needs Bun. Goal: our own single-binary Rust CLI on the Gmail REST API, built agent-first with readable human output, and modelled on the `hey` CLI command style. The first concrete use case: find an email and save its PDF attachment to disk so the agent can read it.
@@ -19,7 +32,7 @@ Decisions made:
 - **Output:** agent-first (compact JSON when piped, text in a TTY).
 - **Token storage:** OS keyring by default. On a headless machine with no keyring, an opt-in 0600 token file (`--token-file`). Never a silent fallback.
 - **Sending:** agents create drafts only; actually sending needs a human at a TTY.
-- **OAuth app:** "In production", unverified (refresh token doesn't expire after 7 days).
+- **OAuth app:** External, unverified, kept in **Testing** status with your account as a test user. Publishing needs a homepage and a privacy-policy URL; Testing needs neither. Cost: Google expires the refresh token after 7 days, so `mg auth login` again weekly. Moving to "In production" later removes that limit.
 - **Accounts:** single account.
 - **Toolchain:** Rust via mise.
 - **Distribution:** local build only.
@@ -56,8 +69,8 @@ my-google-cli/
   src/confirm.rs        TTY gate (reads /dev/tty; refuses when no TTY)       [M3]
   src/auth/mod.rs       auth setup/login/logout/status commands
   src/auth/oauth.rs     PKCE + loopback flow, token exchange/refresh/revoke
-  src/auth/store.rs     keyring (refresh token) + config files (client id/secret, account)
-  src/api.rs            HTTP client: bearer auth, 429/5xx backoff, host lockdown
+  src/auth/store.rs     refresh token (keyring or opt-in 0600 file) + config files (client id/secret, account, token_store)
+  src/api.rs            HTTP client: bearer auth, 429/5xx backoff, host lockdown; test-only stub base URL
   src/gmail/mod.rs      API types, id validation, get_thread, dates, entities
   src/gmail/{search,thread,attachment,mime}.rs                               [M1]
   src/gmail/{label,draft}.rs                                                 [M2, M3]
@@ -85,7 +98,7 @@ Port the logic (not the code) from the reviewed `gmail-cli`:
 | `mg box inbox\|unread\|starred\|sent` | Shortcuts for common searches |
 | `mg thread <id> [--full] [--max-chars N]` | Plain-text bodies (HTML converted), quoted history stripped unless `--full`, default 4000 chars per message |
 | `mg attachment list <thread-or-msg-id>` | |
-| `mg attachment save <msg-id> [<part>] --out <dir>` | Selects by MIME part id from `attachment list`, because Gmail attachment ids change on every fetch. An attachment id is still accepted. Sanitized filenames, never overwrites (adds `-1`, `-2`), files are 0600, prints absolute saved paths only, never the bytes |
+| `mg attachment save <msg-id> [<part>] --out <dir>` | Selects by MIME part id from `attachment list`, because Gmail attachment ids change on every fetch. An attachment id is still accepted. Sanitized filenames, never overwrites (adds `-1`, `-2`), files are 0600, prints absolute saved paths only, never the bytes. A part with no data is an error, never a 0-byte file |
 | `mg label list\|add\|remove`, `mg archive`, `mg seen`, `mg unseen`, `mg trash`, `mg spam` | Accept multiple ids |
 | `mg compose / reply / forward` | Always create a **draft**; output the draft id + a summary |
 | `mg draft list / show / delete` | |
@@ -107,9 +120,11 @@ As built in M1:
   - The `threads.get` calls use a `fields` mask, so bodies are never downloaded.
   - The listing shows the first message's sender and subject and the last message's date.
 - **`thread`:**
-  - Accepts a message id too, resolving it to its thread.
-  - Quoted history is cut at "On … wrote:" / "W dniu … napisał(a):" / "-----Original Message-----" and at `>` lines.
-- **`auth status`:** does a real token refresh to report `logged_in`.
+  - Accepts a message id too, resolving it to its thread. If the message lookup fails for another reason (network, 5xx), that error is returned.
+  - Quoted history is cut at "-----Original Message-----", skips `>` lines, and cuts at an attribution line ("… wrote:", "… pisze:", "… napisał(a):") only when the next non-blank line starts with `>`. A wrapped two-line "On … / … wrote:" is removed whole.
+- **`attachment list`:** walks the whole MIME tree. A part with a filename is listed only if it has an attachment id or inline data; its children are still walked, for attachments only, so a forwarded message's text never replaces the outer body.
+- **`auth login`:** writes the new token, saves `config.json`, and only then removes the previous account's token (with `--token-file` to `--token-file`, the config is saved first because both use the one file). A failed removal is reported as `warning`, not an error.
+- **`auth status`:** does a real token refresh to report `logged_in`, and shows the token store (`keyring` or `file`).
 
 ## Security design
 - **Scope:** `gmail.modify` only. It covers read, labels, trash, drafts and send. Permanent delete and settings (filters, forwarding) can't be reached by design.
@@ -146,7 +161,7 @@ As built in M1:
 1. **The draft-only rule is enforced by the CLI, not by Google.** `gmail.modify` can send. If the refresh token leaks, an attacker can send mail as you. There's no Google scope that allows drafts but blocks sending.
 2. **The keyring doesn't isolate apps.** On an unlocked session, any process running as you can ask Secret Service for the token. It protects against plain-file leaks (backups, dotfile repos, `cat`), not against malware running as your user.
    - **The opt-in token file loses even that.** It can end up in backups or be read by anyone with root or your user. Accepted for headless machines, where a keyring would have to be unlocked with a stored password and gives the same real protection. Protection: 0600, 0700 dir, mode check on read, opt-in only, removed by `logout`.
-3. **The unverified production app** shows a warning at every login. Google could tighten this policy later.
+3. **The unverified app** shows a warning at every login. In Testing status the refresh token also expires after 7 days, so login is weekly. Google could tighten this policy later.
 4. **Prompt injection:** email content flows into the agent's context. The draft gate limits the damage; it can't prevent the agent from being misled when reading.
 5. **Single account:** your mail for other addresses won't be reachable. Keying keyring entries by email keeps a later `--account` option cheap.
 6. **Messy real-world mail:** charsets, broken MIME, giant HTML newsletters. Mitigated with `encoding_rs`, truncation and fixture tests, but there will be edge cases.
@@ -155,16 +170,17 @@ As built in M1:
 
 ## Milestones
 1. **M1, today's need:** project skeleton, auth (setup/login/status/logout), `search`, `thread`, `attachment list/save`, output and sanitizing. **Code complete 2026-11-10; end-to-end test pending.**
-   - **Headless login (added 2026-11-10, implemented, live test pending):** `auth login --no-browser` (paste the redirect URL) and `--token-file` (0600 refresh-token file, opt-in). `status` and `logout` follow `token_store` from `config.json`.
+   - **Headless login (added and implemented 2026-11-10, PR #10; live test pending):** `auth login --no-browser` (paste the redirect URL) and `--token-file` (0600 refresh-token file, opt-in). `status` and `logout` follow `token_store` from `config.json`.
 2. **M2:** labels, archive, seen/unseen, trash, spam.
 3. **M3:** compose/reply/forward as drafts, `draft list/show/delete`, gated `draft send`.
 
 ## One-time setup (yours, about 5 minutes)
 1. Install the toolchain: `mise use -g rust`.
 2. Google Cloud console: create a project and enable the Gmail API.
-3. Set up the OAuth consent screen: External, add the `gmail.modify` scope, then click **Publish app** (move it to production).
+3. Set up the OAuth consent screen (Google Auth Platform): user type External (the only choice for `@gmail.com`), add the `gmail.modify` scope, keep the status **Testing**, and add your address under **Audience > Test users**.
 4. Create credentials: OAuth client ID, type **Desktop app**, then download the JSON.
-5. Run `mg auth setup --client-json ~/Downloads/client_secret_*.json`, then `mg auth login`. Click through the "unverified app" warning once.
+5. Run `mg auth setup --client-json ~/Downloads/client_secret_*.json`, delete the downloaded file, then `mg auth login`. Click through the "unverified app" warning.
+6. Every 7 days (Testing status): when `mg auth status` shows `stored but not working`, run `mg auth login` again.
 
 Headless machine (server, no browser, no keyring):
 1. Copy the binary and run `mg auth setup --client-json <path>` on the server.
@@ -178,12 +194,13 @@ Install and uninstall:
 - Uninstall: `rm ~/.local/bin/mg; rm -rf ~/.config/my-google-cli` (this also removes the token file, if used), remove the keyring entry (`secret-tool clear service my-google-cli`), and revoke access at myaccount.google.com/permissions.
 
 ## Verification
-- `cargo test`: PKCE vector, MIME walk on fixtures (multipart, nested, ISO-8859-2, HTML-only), reply headers, filename sanitizing, control-char stripping, id validation.
+- `cargo test`: PKCE vector, MIME walk on fixtures (multipart, nested, ISO-8859-2, HTML-only, forwarded), reply headers, filename sanitizing, control-char stripping, id validation.
 - `cargo clippy -- -D warnings`, `cargo audit`.
 
 M1 results (2026-11-10):
-- [x] `cargo test`: 39 pass.
+- [x] `cargo test`: 47 pass (39 at the first commit).
   - Areas covered: PKCE vector, auth URL, callback parsing, a real loopback listener with noise requests, scope check, OAuth/API error mapping, client JSON import, sanitizing (CSI/OSC/C0/C1/bidi), JSON sanitizing, truncation, id validation, dates, entities, MIME walk (multipart, nested, inline data, ISO-8859-2, HTML-only), quote stripping (EN/PL/wrapped/Outlook), thread and search rendering, filename sanitizing, never-overwrite (incl. symlink), 0600 mode.
+  - Added since: quote stripping keeps "X wrote:" without quoted text and cuts an undated attribution; forwarded-message attachments; `get_thread` fallback (404 then 500, 404 then message to thread) against a local stub server; pasted redirect URL; token-file checks; `token_store` default.
   - Reply headers move to M3.
 - [x] `cargo clippy --all-targets -- -D warnings`: clean.
 - [x] Release binary is 4.8 MB. `ldd` shows libc and libgcc_s only (no libdbus, no libssl).
@@ -192,8 +209,9 @@ M1 results (2026-11-10):
   - `auth setup` writes a 0600 file in a 0700 dir and rejects a Web client.
   - `auth status` works with nothing configured.
 - [ ] `cargo audit`: not run yet, `cargo-audit` is not installed.
+- [ ] `cargo fmt --check`: fails on `master` (never formatted); one repo-wide `cargo fmt` commit pending.
 - [ ] End-to-end, below.
-- [ ] Headless login. Unit tests (done, `cargo test` 47 pass): paste parsing (full URL, URL with a wrong state, `error=access_denied`, garbage, over-long line) through `classify_callback`; token file written 0600 and refused when group/world-readable or a symlink; `config.json` without `token_store` reads as `keyring`. Manual: `mg auth login --no-browser --token-file` over SSH on a machine with no D-Bus session, then `mg auth status` and `mg box inbox`.
+- [ ] Headless login: unit tests done; manual SSH test pending. Unit tests: paste parsing (full URL, URL with a wrong state, `error=access_denied`, garbage, over-long line) through `classify_callback`; token file written 0600 and refused when group/world-readable or a symlink; `config.json` without `token_store` reads as `keyring`. Manual: `mg auth login --no-browser --token-file` over SSH on a machine with no D-Bus session, then `mg auth status` and `mg box inbox`.
 - End-to-end:
   - `mg search 'NALICZENIE Kazimierza'` → `mg attachment save <msg-id> --out /tmp/x` → Claude reads the PDF with the Read tool. This closes today's loop.
   - Check the binary: `ldd target/release/mg` shows only libc and libgcc_s (plus libdbus if not vendored).

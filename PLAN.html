@@ -142,6 +142,7 @@ pre{background:var(--code);padding:12px 14px;border-radius:9px;overflow-x:auto;m
 
 <nav>
   <b>Contents</b>
+  <a href="#status">Status</a>
   <a href="#context">1. Context</a>
   <a href="#decisions">2. Decisions</a>
   <a href="#arch">3. Architecture</a>
@@ -159,7 +160,7 @@ pre{background:var(--code);padding:12px 14px;border-radius:9px;overflow-x:auto;m
 
 <main>
 <header>
-  <h1><code>my-google-cli</code> &mdash; a single-binary Rust Gmail CLI for agents <span class="badge">Planning only</span></h1>
+  <h1><code>my-google-cli</code> &mdash; a single-binary Rust Gmail CLI for agents <span class="badge">M1 code complete &middot; live test pending</span></h1>
   <p class="sub">Our own CLI on the Gmail REST API: agent-first, readable for humans, modelled on the <code>hey</code> command style. Binary name: <code>mg</code>.</p>
   <div class="facts">
     <div class="fact"><div class="k">Binary</div><div class="v mono">mg</div></div>
@@ -167,9 +168,36 @@ pre{background:var(--code);padding:12px 14px;border-radius:9px;overflow-x:auto;m
     <div class="fact"><div class="k">OAuth scope</div><div class="v mono">gmail.modify</div></div>
     <div class="fact"><div class="k">Accounts</div><div class="v">1 (keyed by email)</div></div>
     <div class="fact"><div class="k">Network hosts</div><div class="v">3, hardcoded</div></div>
-    <div class="fact"><div class="k">Milestones</div><div class="v">M1 &rarr; M3</div></div>
+    <div class="fact"><div class="k">Milestones</div><div class="v">M1 done &rarr; M3</div></div>
+    <div class="fact"><div class="k">Tests</div><div class="v">47 passing</div></div>
   </div>
 </header>
+
+<section id="status">
+  <h2>Status <span style="color:var(--muted);font-weight:400;font-size:.9rem">(2026-11-10)</span></h2>
+  <div class="grid3" style="margin:12px 0 18px">
+    <div class="card" style="border-left:4px solid var(--ok)"><h4>M1</h4><p>Code complete, including headless login. <code>cargo test</code> (47) and <code>cargo clippy --all-targets -- -D warnings</code> pass. Not yet run against live Gmail.</p></div>
+    <div class="card" style="border-left:4px solid var(--warn)"><h4>Pending</h4><p><code>cargo audit</code> (not installed). <code>cargo fmt --check</code> fails on <code>master</code>: one repo-wide format commit is due.</p></div>
+    <div class="card"><h4>Repo</h4><p>GitHub <code>arturstaszczyk/my-rust-gmail-cli</code>, branch <code>master</code>, changes via PRs. Rust 1.99.1 via mise (global); <code>mise.toml</code> pins only <code>gh</code>.</p></div>
+  </div>
+  <h3>Done since the first commit</h3>
+  <table>
+    <tr><th>PR</th><th>What</th></tr>
+    <tr><td>#5 <span class="chip">issue #4</span></td><td><code>auth login</code> saves <code>config.json</code> before deleting the old account's token; a failed delete is a warning, not an error.</td></tr>
+    <tr><td>#6 <span class="chip">issue #1</span></td><td><code>thread</code> cuts at "&hellip; wrote:" / "&hellip; pisze:" only when quoted <code>&gt;</code> text follows. A plain "She wrote:" line no longer empties the body.</td></tr>
+    <tr><td>#7 <span class="chip">issue #3</span></td><td>Message-id fallback returns the real lookup error (network, 5xx), not "not found". Test-only stub server for the Gmail client.</td></tr>
+    <tr><td>#8 <span class="chip">issue #2</span></td><td>MIME walk finds attachments inside a forwarded <code>.eml</code> without taking its body text. No more 0-byte "successful" saves.</td></tr>
+    <tr><td>#9</td><td>Plan: headless login.</td></tr>
+    <tr><td>#10</td><td><code>auth login --no-browser</code> and <code>--token-file</code>. Review fixes: file-to-file login saves the config first; <code>logout</code> names the store it cleared.</td></tr>
+  </table>
+  <h3>To check on the first live run</h3>
+  <ul class="check">
+    <li>Partial-response <code>fields</code> mask in <code>search</code></li>
+    <li>Loopback login in a real browser, and <code>--no-browser</code> paste login over SSH</li>
+    <li>Real ISO-8859-2 mail</li>
+    <li>Attachments inside a real forwarded message (the fixture is synthetic)</li>
+  </ul>
+</section>
 
 <section id="context">
   <h2><span class="n">1</span>Context</h2>
@@ -194,9 +222,9 @@ pre{background:var(--code);padding:12px 14px;border-radius:9px;overflow-x:auto;m
   <div class="grid3" style="margin-top:12px">
     <div class="card"><h4>Scope</h4><p>Gmail read + attachments, organize, drafts/send. No Calendar/Drive.</p></div>
     <div class="card"><h4>Output</h4><p>Agent-first: compact JSON when piped, text in a TTY.</p></div>
-    <div class="card"><h4>Token storage</h4><p>OS keyring (Secret Service).</p></div>
+    <div class="card"><h4>Token storage</h4><p>OS keyring (Secret Service) by default. Headless: opt-in 0600 file (<code>--token-file</code>). Never a silent fallback.</p></div>
     <div class="card"><h4>Sending</h4><p>Agents create drafts only. Sending needs a human at a TTY.</p></div>
-    <div class="card"><h4>OAuth app</h4><p>"In production", unverified. Refresh token doesn't expire after 7 days.</p></div>
+    <div class="card"><h4>OAuth app</h4><p>External, unverified, in <b>Testing</b> with you as test user. No homepage/privacy URLs needed; the refresh token expires after 7 days, so log in weekly.</p></div>
     <div class="card"><h4>Accounts</h4><p>Single account.</p></div>
     <div class="card"><h4>Toolchain</h4><p>Rust via mise.</p></div>
     <div class="card"><h4>Distribution</h4><p>Local build only. No CI or releases.</p></div>
@@ -219,10 +247,10 @@ pre{background:var(--code);padding:12px 14px;border-radius:9px;overflow-x:auto;m
         <div class="box full"><b>main.rs</b><span>clap definitions, dispatch</span></div>
         <div class="box"><b>gmail/*</b><span>search, thread, attachment, label, draft, mime</span></div>
         <div class="box"><b>api.rs</b><span>bearer auth, auto-refresh, 429/5xx backoff</span></div>
-        <div class="box"><b>auth/oauth.rs</b><span>PKCE + loopback, exchange/refresh</span></div>
-        <div class="box"><b>auth/store.rs</b><span>keyring + client config</span></div>
+        <div class="box"><b>auth/oauth.rs</b><span>PKCE + loopback or pasted redirect, exchange/refresh</span></div>
+        <div class="box"><b>auth/store.rs</b><span>keyring or token file + client config</span></div>
         <div class="box"><b>output.rs</b><span>JSON/text, sanitizing, truncation</span></div>
-        <div class="box"><b>confirm.rs</b><span>TTY gate via <code>/dev/tty</code></span></div>
+        <div class="box"><b>confirm.rs</b><span>TTY gate via <code>/dev/tty</code> (M3)</span></div>
       </div>
     </div>
     <div class="col">
@@ -230,8 +258,8 @@ pre{background:var(--code);padding:12px 14px;border-radius:9px;overflow-x:auto;m
       <div class="box host"><b class="mono">gmail.googleapis.com</b><span>Gmail REST API</span></div>
       <div class="box host"><b class="mono">oauth2.googleapis.com</b><span>Token exchange, refresh, revoke</span></div>
       <div class="box host"><b class="mono">accounts.google.com</b><span>Browser consent</span></div>
-      <div class="box"><b>OS keyring</b><span>Refresh token only</span></div>
-      <div class="box"><b class="mono">~/.config/my-google-cli/</b><span>client.json (0600, dir 0700)</span></div>
+      <div class="box"><b>OS keyring</b><span>Refresh token (default)</span></div>
+      <div class="box"><b class="mono">~/.config/my-google-cli/</b><span>client.json, config.json; refresh_token with <code>--token-file</code> (0600, dir 0700)</span></div>
     </div>
   </div>
 </section>
@@ -246,12 +274,12 @@ pre{background:var(--code);padding:12px 14px;border-radius:9px;overflow-x:auto;m
     <tr><td>JSON</td><td><code>serde</code>, <code>serde_json</code></td><td>API types and output</td></tr>
     <tr><td>Secrets</td><td><code>keyring</code> 3</td><td>Secret Service (gnome-keyring/KeePassXC). Features: <span class="chip">sync-secret-service</span><span class="chip">crypto-rust</span><span class="chip">vendored</span> &mdash; dbus vendored, no runtime lib</td></tr>
     <tr><td>Crypto</td><td><code>sha2</code>, <code>getrandom</code>, <code>base64</code></td><td>PKCE, state, base64url</td></tr>
-    <tr><td>Compose</td><td><code>mail-builder</code></td><td>RFC 5322, proper header encoding, prevents CRLF header injection</td></tr>
+    <tr><td>Compose</td><td><code>mail-builder</code> <span class="chip">M3</span></td><td>RFC 5322, proper header encoding, prevents CRLF header injection</td></tr>
     <tr><td>Reading</td><td><code>html2text</code></td><td>HTML bodies to text</td></tr>
     <tr><td>Charsets</td><td><code>encoding_rs</code></td><td>Non-UTF-8 parts (ISO-8859-2 is common in Polish mail)</td></tr>
-    <tr><td>Paths</td><td><code>directories</code></td><td>XDG config path</td></tr>
     <tr><td>Loopback</td><td><code>std::net::TcpListener</code></td><td>127.0.0.1:0, no HTTP server crate</td></tr>
   </table>
+  <p style="color:var(--muted);font-size:.9rem;margin:8px 0 0">Dropped: <code>directories</code> (the config path comes from <code>$XDG_CONFIG_HOME</code> or <code>~/.config</code> via <code>std::env</code>). As built: clap 4.6, ureq 3.5, keyring 3.6, sha2 0.11, getrandom 0.4, base64 0.23, html2text 0.17, encoding_rs 0.8. No OpenSSL, no zbus; dbus vendored.</p>
   <h3>Release profile</h3>
   <span class="chip mono">lto = true</span><span class="chip mono">strip = true</span><span class="chip mono">codegen-units = 1</span><span class="chip mono">panic = "abort"</span>
 </section>
@@ -266,16 +294,19 @@ pre{background:var(--code);padding:12px 14px;border-radius:9px;overflow-x:auto;m
   <span class="dir">src/</span>
     main.rs            <span class="c">clap, dispatch</span>
     output.rs          <span class="c">JSON/text, sanitize, truncate</span>
-    confirm.rs         <span class="c">TTY gate (/dev/tty)</span>
-    api.rs             <span class="c">HTTP, auth, backoff</span>
+    error.rs           <span class="c">error kind &rarr; exit code</span>
+    confirm.rs         <span class="c">TTY gate (/dev/tty)  [M3]</span>
+    api.rs             <span class="c">HTTP, auth, backoff; test stub</span>
     <span class="dir">auth/</span>
-      oauth.rs         <span class="c">PKCE + loopback</span>
-      store.rs         <span class="c">keyring + config</span>
+      mod.rs           <span class="c">setup/login/logout/status</span>
+      oauth.rs         <span class="c">PKCE, loopback, pasted URL</span>
+      store.rs         <span class="c">keyring or file + config</span>
     <span class="dir">gmail/</span>
-      search.rs  thread.rs  attachment.rs
-      label.rs   draft.rs   mime.rs
+      mod.rs  search.rs  thread.rs
+      attachment.rs  mime.rs
+      label.rs  draft.rs  <span class="c">[M2, M3]</span>
   <span class="dir">tests/fixtures/</span>
-    *.json             <span class="c">recorded API responses</span></div>
+    *.json             <span class="c">hand-built, API-shaped</span></div>
     </div>
     <div>
       <h3 style="margin-top:0">Port the logic, not the code, from <code>gmail-cli</code></h3>
@@ -301,12 +332,13 @@ pre{background:var(--code);padding:12px 14px;border-radius:9px;overflow-x:auto;m
   <table>
     <tr><th></th><th>Command</th><th>Notes</th></tr>
     <tr><td><span class="tag m1">M1</span></td><td><code>mg auth setup --client-json &lt;path&gt;</code></td><td>Imports the Desktop OAuth client JSON to <code>~/.config/my-google-cli/client.json</code></td></tr>
-    <tr><td><span class="tag m1">M1</span></td><td><code>mg auth login | logout | status</code></td><td>Login opens the browser; logout also revokes the token at Google</td></tr>
+    <tr><td><span class="tag m1">M1</span></td><td><code>mg auth login [--no-browser] [--token-file]</code></td><td>Opens the browser. <code>--no-browser</code>: print the URL, paste back the redirect URL (headless). <code>--token-file</code>: refresh token in a 0600 file instead of the keyring</td></tr>
+    <tr><td><span class="tag m1">M1</span></td><td><code>mg auth logout | status</code></td><td>Logout revokes at Google and removes the stored token (keyring or file); status shows the store and does a real refresh</td></tr>
     <tr><td><span class="tag m1">M1</span></td><td><code>mg search "&lt;query&gt;" [--limit N]</code></td><td>Thread summaries: id, date, from, subject, snippet, attachment count</td></tr>
     <tr><td><span class="tag m1">M1</span></td><td><code>mg box inbox|unread|starred|sent</code></td><td>Shortcuts for common searches</td></tr>
-    <tr><td><span class="tag m1">M1</span></td><td><code>mg thread &lt;id&gt; [--full] [--max-chars N]</code></td><td>Plain-text bodies (HTML converted); quoted history stripped unless <code>--full</code>; default 4000 chars per message</td></tr>
-    <tr><td><span class="tag m1">M1</span></td><td><code>mg attachment list &lt;thread-or-msg-id&gt;</code></td><td></td></tr>
-    <tr><td><span class="tag m1">M1</span></td><td><code>mg attachment save &lt;msg-id&gt; [&lt;att-id&gt;] --out &lt;dir&gt;</code></td><td>Sanitized filenames, never overwrites (adds <code>-1</code>, <code>-2</code>), prints saved paths only</td></tr>
+    <tr><td><span class="tag m1">M1</span></td><td><code>mg thread &lt;id&gt; [--full] [--max-chars N]</code></td><td>Accepts a thread or message id. Plain-text bodies (HTML converted); quoted history stripped unless <code>--full</code> (an attribution line is cut only when <code>&gt;</code> quotes follow); default 4000 chars per message</td></tr>
+    <tr><td><span class="tag m1">M1</span></td><td><code>mg attachment list &lt;thread-or-msg-id&gt;</code></td><td>Whole MIME tree, including attachments inside forwarded messages; columns MESSAGE, PART, FILENAME, TYPE, SIZE</td></tr>
+    <tr><td><span class="tag m1">M1</span></td><td><code>mg attachment save &lt;msg-id&gt; [&lt;part&gt;] --out &lt;dir&gt;</code></td><td>Selects by PART (attachment ids change per fetch; still accepted). Sanitized filenames, never overwrites (adds <code>-1</code>, <code>-2</code>), files 0600, prints saved paths only. No data &rarr; error, never a 0-byte file</td></tr>
     <tr><td><span class="tag m2">M2</span></td><td><code>mg label list|add|remove</code></td><td rowspan="2">Accept multiple ids</td></tr>
     <tr><td><span class="tag m2">M2</span></td><td><code>mg archive | seen | unseen | trash | spam</code></td></tr>
     <tr><td><span class="tag m3">M3</span></td><td><code>mg compose | reply | forward</code></td><td>Always create a <b>draft</b>; output draft id + summary</td></tr>
@@ -348,11 +380,11 @@ Sent.
     <div class="card"><h4>Piped</h4><p>Compact JSON for agents.</p></div>
     <div class="card"><h4>Overrides</h4><p><code>--json</code> / <code>--text</code></p></div>
   </div>
-  <h3>Errors go to stderr as <code>{"error":…, "hint":…}</code></h3>
+  <h3>Errors go to stderr: <code>{"error":…, "hint":…}</code> when piped, <code>error:</code> / <code>hint:</code> lines in a TTY</h3>
   <table>
     <tr><th>Exit code</th><th>Meaning</th></tr>
     <tr><td><code>0</code></td><td>Success</td></tr>
-    <tr><td><code>1</code></td><td>Usage error</td></tr>
+    <tr><td><code>1</code></td><td>Usage or local error (files, directories)</td></tr>
     <tr><td><code>2</code></td><td>Auth error</td></tr>
     <tr><td><code>3</code></td><td>API error</td></tr>
   </table>
@@ -368,7 +400,7 @@ Sent.
   <h3>Where secrets live</h3>
   <table>
     <tr><th>Secret</th><th>Stored in</th><th>Lifetime</th></tr>
-    <tr><td>Refresh token</td><td>OS keyring only</td><td>Long-lived (production app)</td></tr>
+    <tr><td>Refresh token</td><td>OS keyring (default), or <code>~/.config/my-google-cli/refresh_token</code> with <code>--token-file</code>: 0600, refused on read if a symlink, not yours, group/other-readable, or swapped</td><td>7 days in Testing status; long-lived in production</td></tr>
     <tr><td>Access token</td><td>Memory only</td><td>One run; refreshed each run (cheap)</td></tr>
     <tr><td>Client id / secret</td><td>Config file (0600)</td><td>A desktop client secret isn't really secret</td></tr>
   </table>
@@ -380,14 +412,25 @@ Sent.
     <div class="arrow">&rarr;</div>
     <div class="step"><div class="t">3</div><div class="b">Single redirect</div><div class="d">Check state, then close. 5-min timeout</div></div>
     <div class="arrow">&rarr;</div>
-    <div class="step ok"><div class="t">4</div><div class="b">Exchange code</div><div class="d">Refresh token &rarr; keyring</div></div>
+    <div class="step ok"><div class="t">4</div><div class="b">Exchange code</div><div class="d">Refresh token &rarr; keyring or file</div></div>
   </div>
+  <h3>Headless login (<code>--no-browser</code>)</h3>
+  <div class="flow">
+    <div class="step"><div class="t">1</div><div class="b">Print URL</div><div class="d">Redirect <code>127.0.0.1:&lt;random port&gt;</code>; nothing listens</div></div>
+    <div class="arrow">&rarr;</div>
+    <div class="step"><div class="t">2</div><div class="b">Sign in anywhere</div><div class="d">Browser on any machine; the redirect fails to load</div></div>
+    <div class="arrow">&rarr;</div>
+    <div class="step"><div class="t">3</div><div class="b">Paste the URL</div><div class="d">stdin, one line, &le;4 KB, 5 min; same state check</div></div>
+    <div class="arrow">&rarr;</div>
+    <div class="step ok"><div class="t">4</div><div class="b">Exchange code</div><div class="d">Usually with <code>--token-file</code></div></div>
+  </div>
+  <p class="lead" style="margin-top:8px;font-size:.85rem">The out-of-band (OOB) flow is not used: Google has shut it down.</p>
   <h3>Invariants</h3>
   <div class="inv">
     <div class="card"><h4>Hardcoded hosts only</h4><p><code>gmail.googleapis.com</code>, <code>oauth2.googleapis.com</code> (incl. <code>/revoke</code>), <code>accounts.google.com</code>.</p></div>
     <div class="card"><h4>Sanitized output</h4><p>C0/C1 controls and ANSI/OSC escapes stripped from all text. JSON escaped by serde. Fixes the <code>gmail-cli</code> weakness.</p></div>
     <div class="card"><h4>Validated ids</h4><p>Message, thread and attachment ids must match <code>[A-Za-z0-9_-]+</code> before going into URLs.</p></div>
-    <div class="card"><h4>No telemetry</h4><p>No update checks. Writes only config, keyring and saved attachments.</p></div>
+    <div class="card"><h4>No telemetry</h4><p>No update checks. Writes only config, keyring (or the opt-in token file) and saved attachments.</p></div>
   </div>
 </section>
 
@@ -400,8 +443,8 @@ Sent.
   </div>
   <div class="grid2">
     <div class="risk h"><div class="num">1</div><h4>Draft-only is enforced by the CLI, not Google</h4><p><code>gmail.modify</code> can send. A leaked refresh token can send mail as you. No Google scope allows drafts but blocks sending.</p><div class="st">Accepted</div></div>
-    <div class="risk h"><div class="num">2</div><h4>Keyring doesn't isolate apps</h4><p>Any process running as you on an unlocked session can read the token. Protects against plain-file leaks, not same-user malware.</p><div class="st">Accepted</div></div>
-    <div class="risk m"><div class="num">3</div><h4>Unverified production app</h4><p>Warning at every login. Google could tighten the policy later.</p><div class="st">Accepted</div></div>
+    <div class="risk h"><div class="num">2</div><h4>Keyring doesn't isolate apps</h4><p>Any process running as you on an unlocked session can read the token. Protects against plain-file leaks, not same-user malware. The opt-in token file loses even that (backups, root); accepted for headless machines.</p><div class="st">Accepted</div></div>
+    <div class="risk m"><div class="num">3</div><h4>Unverified app in Testing</h4><p>Warning at every login, and the refresh token expires after 7 days. Google could tighten the policy later.</p><div class="st">Accepted</div></div>
     <div class="risk h"><div class="num">4</div><h4>Prompt injection</h4><p>Email content flows into the agent's context. The draft gate limits damage but can't stop the agent being misled while reading.</p><div class="st">Partly mitigated</div></div>
     <div class="risk m"><div class="num">5</div><h4>Single account</h4><p>Other addresses unreachable. Keyring keyed by email keeps a later <code>--account</code> cheap.</p><div class="st">Accepted</div></div>
     <div class="risk l"><div class="num">6</div><h4>Messy real-world mail</h4><p>Charsets, broken MIME, giant HTML. <code>encoding_rs</code>, truncation, fixture tests. Edge cases will remain.</p><div class="st">Mitigated</div></div>
@@ -413,11 +456,11 @@ Sent.
 <section id="milestones">
   <h2><span class="n">11</span>Milestones</h2>
   <div class="tl">
-    <div class="ms"><div class="bar"></div><h4>M1 &mdash; today's need</h4><div class="when">Closes the PDF loop</div>
-      <ul><li>Project skeleton</li><li>Auth: setup / login / status / logout</li><li><code>search</code>, <code>box</code>, <code>thread</code></li><li><code>attachment list / save</code></li><li>Output switch + sanitizing</li></ul></div>
-    <div class="ms"><div class="bar"></div><h4>M2 &mdash; organize</h4><div class="when">Inbox housekeeping</div>
+    <div class="ms"><div class="bar"></div><h4>M1 &mdash; today's need</h4><div class="when">Code complete 2026-11-10 &middot; live test pending</div>
+      <ul><li>Project skeleton</li><li>Auth: setup / login / status / logout</li><li>Headless login: <code>--no-browser</code>, <code>--token-file</code></li><li><code>search</code>, <code>box</code>, <code>thread</code></li><li><code>attachment list / save</code></li><li>Output switch + sanitizing</li></ul></div>
+    <div class="ms"><div class="bar"></div><h4>M2 &mdash; organize</h4><div class="when">Inbox housekeeping &middot; not started</div>
       <ul><li>Labels list / add / remove</li><li>archive, seen / unseen</li><li>trash, spam</li></ul></div>
-    <div class="ms"><div class="bar"></div><h4>M3 &mdash; drafts</h4><div class="when">Write, never auto-send</div>
+    <div class="ms"><div class="bar"></div><h4>M3 &mdash; drafts</h4><div class="when">Write, never auto-send &middot; not started</div>
       <ul><li>compose / reply / forward as drafts</li><li><code>draft list / show / delete</code></li><li>Gated <code>draft send</code></li></ul></div>
   </div>
 </section>
@@ -427,9 +470,17 @@ Sent.
   <ol class="steps">
     <li>Install the toolchain: <code>mise use -g rust</code></li>
     <li>Google Cloud console: create a project and enable the Gmail API.</li>
-    <li>OAuth consent screen: External, add the <code>gmail.modify</code> scope, click <b>Publish app</b> (move to production).</li>
-    <li>Credentials: OAuth client ID, type <b>Desktop app</b>, download the JSON.</li>
-    <li><code>mg auth setup --client-json ~/Downloads/client_secret_*.json</code>, then <code>mg auth login</code>. Click through the "unverified app" warning once.</li>
+    <li>Google Auth Platform: user type External (the only choice for <code>@gmail.com</code>), add the <code>gmail.modify</code> scope, keep status <b>Testing</b>, add your address under <b>Audience &gt; Test users</b>.</li>
+    <li>Clients: create an OAuth client, type <b>Desktop app</b>, download the JSON.</li>
+    <li><code>mg auth setup --client-json ~/Downloads/client_secret_*.json</code>, delete the downloaded file, then <code>mg auth login</code>. Click through the "unverified app" warning.</li>
+    <li>Every 7 days: when <code>mg auth status</code> shows <code>stored but not working</code>, run <code>mg auth login</code> again.</li>
+  </ol>
+  <h3>Headless machine (server, no browser, no keyring)</h3>
+  <ol class="steps">
+    <li>Copy the binary and run <code>mg auth setup --client-json &lt;path&gt;</code> on the server.</li>
+    <li>Over SSH: <code>mg auth login --no-browser --token-file</code></li>
+    <li>Open the printed URL in a browser on any machine and sign in.</li>
+    <li>The browser fails to load <code>http://127.0.0.1:&hellip;</code>. Copy the full URL from the address bar and paste it into the SSH session.</li>
   </ol>
   <div class="two" style="margin-top:16px">
     <div><h3>Install</h3>
@@ -437,7 +488,7 @@ Sent.
 cp target/release/mg ~/.local/bin/</pre></div>
     <div><h3>Uninstall</h3>
 <pre>rm ~/.local/bin/mg
-rm -rf ~/.config/my-google-cli
+rm -rf ~/.config/my-google-cli   # also the token file
 secret-tool clear service my-google-cli</pre>
       <p style="margin:4px 0 0;color:var(--muted);font-size:.9rem">Then revoke access at myaccount.google.com/permissions.</p></div>
   </div>
@@ -447,23 +498,25 @@ secret-tool clear service my-google-cli</pre>
   <h2><span class="n">13</span>Verification</h2>
   <div class="two" style="margin-top:12px">
     <div>
-      <h3 style="margin-top:0">Unit tests &mdash; <code>cargo test</code></h3>
+      <h3 style="margin-top:0">Unit tests &mdash; <code>cargo test</code>: 47 pass</h3>
       <ul class="check">
-        <li>PKCE test vector</li>
-        <li>MIME walk on fixtures: multipart, nested, ISO-8859-2, HTML-only</li>
-        <li>Reply headers</li>
-        <li>Filename sanitizing</li>
-        <li>Control-char stripping</li>
-        <li>Id validation</li>
+        <li>PKCE vector, auth URL, loopback callback with noise requests, pasted redirect URL</li>
+        <li>MIME walk on fixtures: multipart, nested, inline, ISO-8859-2, HTML-only, forwarded</li>
+        <li>Quote stripping: EN/PL, wrapped, Outlook, "X wrote:" without quotes kept</li>
+        <li><code>get_thread</code> fallback against a local stub server (404&rarr;500, 404&rarr;thread)</li>
+        <li>Token file: 0600 written, refused when group-readable, a symlink, or empty; <code>token_store</code> default</li>
+        <li>Sanitizing (CSI/OSC/C0/C1/bidi), id validation, filenames, never-overwrite</li>
+        <li>Reply headers &mdash; moved to M3</li>
       </ul>
       <h3>Static checks</h3>
-      <ul class="check"><li><code>cargo clippy -- -D warnings</code></li><li><code>cargo audit</code></li></ul>
+      <ul class="check"><li><code>cargo clippy --all-targets -- -D warnings</code>: clean</li><li><code>cargo audit</code>: not run (not installed)</li><li><code>cargo fmt --check</code>: fails on <code>master</code>, format commit pending</li></ul>
     </div>
     <div>
       <h3 style="margin-top:0">End-to-end</h3>
       <ul class="check">
         <li><code>mg search 'NALICZENIE Kazimierza'</code> &rarr; <code>mg attachment save &lt;msg-id&gt; --out /tmp/x</code> &rarr; Claude reads the PDF</li>
-        <li><code>ldd target/release/mg</code> shows only libc (plus libdbus if not vendored)</li>
+        <li>Headless: <code>mg auth login --no-browser --token-file</code> over SSH with no D-Bus session, then <code>mg auth status</code> and <code>mg box inbox</code></li>
+        <li><code>ldd target/release/mg</code> shows only libc and libgcc_s (checked: 4.8 MB binary)</li>
         <li>M3: <code>mg reply &lt;id&gt; --body test</code> creates a draft visible in Gmail</li>
         <li>M3: piped <code>mg draft send &lt;id&gt;</code> is refused</li>
         <li>M3: in a real terminal the confirmation prompt appears</li>
