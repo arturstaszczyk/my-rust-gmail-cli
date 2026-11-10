@@ -126,7 +126,7 @@ fn fetch_bytes(gmail: &Gmail, message_id: &str, a: &Attachment) -> Result<Vec<u8
                 .data
         }
         (None, Some(data)) => data.clone(),
-        (None, None) => String::new(),
+        (None, None) => return Err(Error::api("attachment has no data to download")),
     };
     mime::decode_b64(&data).ok_or_else(|| Error::api("attachment data is not valid base64"))
 }
