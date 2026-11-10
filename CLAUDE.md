@@ -17,7 +17,7 @@ A single-binary Rust CLI (`mg`) for Gmail built on the Gmail REST API. It is age
 - **Language and dependencies:** Rust, blocking I/O (`ureq` + rustls), no async runtime, no OpenSSL. One static-ish binary.
 - **Scope:** Gmail only, scope `gmail.modify`. No Calendar/Drive.
 - **Account:** single account. Keyring entries are still keyed by email address, so multiple accounts can be added later.
-- **Token storage:** refresh token in the OS keyring (Secret Service) only. Access token is held in memory. Client JSON lives at `~/.config/my-google-cli/` (dir 0700, files 0600).
+- **Token storage:** refresh token in the OS keyring (Secret Service) by default. Headless opt-in only: `mg auth login --token-file` stores it in `~/.config/my-google-cli/refresh_token` (0600, checked on read). Never fall back to the file silently. Access token is held in memory. Client JSON lives at `~/.config/my-google-cli/` (dir 0700, files 0600).
 - **OAuth app:** "In production", unverified. Flow uses PKCE S256, random state, a 127.0.0.1 loopback redirect, and a 5-minute timeout.
 - **Output:** compact JSON when piped, text in a TTY; `--json`/`--text` override.
 - **Toolchain:** Rust via mise (`mise use -g rust`).
