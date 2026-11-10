@@ -52,7 +52,9 @@ pub struct Message {
 
 impl Message {
     pub fn header(&self, name: &str) -> &str {
-        self.payload.as_ref().map_or("", |p| header(&p.headers, name))
+        self.payload
+            .as_ref()
+            .map_or("", |p| header(&p.headers, name))
     }
 
     /// `internalDate` as ISO 8601 UTC, or "" if missing.
@@ -88,11 +90,14 @@ pub fn header<'a>(headers: &'a [Header], name: &str) -> &'a str {
 pub fn validate_id<'a>(id: &'a str, what: &str) -> Result<&'a str> {
     let ok = !id.is_empty()
         && id.len() <= 1024
-        && id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_');
+        && id
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_');
     if ok {
         Ok(id)
     } else {
-        Err(Error::usage(format!("invalid {what} id")).hint("ids contain only A-Z, a-z, 0-9, - and _"))
+        Err(Error::usage(format!("invalid {what} id"))
+            .hint("ids contain only A-Z, a-z, 0-9, - and _"))
     }
 }
 
@@ -101,8 +106,7 @@ pub fn get_thread(gmail: &Gmail, id: &str, query: &[(&str, &str)]) -> Result<Thr
     let id = validate_id(id, "thread")?;
     match gmail.get::<Thread>(&format!("/threads/{id}"), query) {
         Err(e) if e.status == Some(404) => {
-            let msg: Message =
-                gmail.get(&format!("/messages/{id}"), &[("format", "minimal")]).map_err(|_| e)?;
+            let msg: Message = gmail.get(&format!("/messages/{id}"), &[("format", "minimal")])?;
             let thread_id = msg.thread_id.unwrap_or_default();
             let thread_id = validate_id(&thread_id, "thread")?;
             gmail.get(&format!("/threads/{thread_id}"), query)
@@ -126,7 +130,9 @@ pub fn format_date(ms: i64) -> String {
 
 /// `2026-11-02T10:15:00Z` -> `2026-11-02 10:15` for tables.
 pub fn short_date(iso: &str) -> String {
-    iso.get(..16).map(|s| s.replace('T', " ")).unwrap_or_else(|| iso.to_string())
+    iso.get(..16)
+        .map(|s| s.replace('T', " "))
+        .unwrap_or_else(|| iso.to_string())
 }
 
 // Howard Hinnant's days-to-civil algorithm.
@@ -188,15 +194,72 @@ pub fn display_name(from: &str) -> String {
     match from.find('<') {
         Some(i) if i > 0 => {
             let name = from[..i].trim().trim_matches('"').trim();
-            if name.is_empty() { from.to_string() } else { name.to_string() }
+            if name.is_empty() {
+                from.to_string()
+            } else {
+                name.to_string()
+            }
         }
-        _ => from.trim_matches(|c| c == '<' || c == '>' || c == ' ').to_string(),
+        _ => from
+            .trim_matches(|c| c == '<' || c == '>' || c == ' ')
+            .to_string(),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::{BufRead, BufReader, Write};
+
+    /// Serves `route(path)` -> (status, body) on 127.0.0.1; returns the base URL.
+    fn stub(route: fn(&str) -> (u16, &'static str)) -> String {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        std::thread::spawn(move || {
+            for mut conn in listener.incoming().flatten() {
+                let mut reader = BufReader::new(&conn);
+                let mut line = String::new();
+                reader.read_line(&mut line).unwrap();
+                let path = line
+                    .split(' ')
+                    .nth(1)
+                    .unwrap_or("")
+                    .split('?')
+                    .next()
+                    .unwrap();
+                let (status, body) = route(path);
+                while reader.read_line(&mut line).unwrap() > 2 {
+                    line.clear();
+                }
+                let _ = write!(
+                    conn,
+                    "HTTP/1.1 {status} X\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                );
+            }
+        });
+        base
+    }
+
+    #[test]
+    fn thread_fallback_keeps_message_error() {
+        let gmail = Gmail::for_test(stub(|path| match path {
+            "/threads/m1" => (404, ""),
+            _ => (500, ""),
+        }));
+        let e = get_thread(&gmail, "m1", &[]).unwrap_err();
+        assert_eq!(e.status, Some(500));
+    }
+
+    #[test]
+    fn thread_fallback_follows_message() {
+        let gmail = Gmail::for_test(stub(|path| match path {
+            "/messages/m1" => (200, r#"{"id":"m1","threadId":"t1"}"#),
+            "/threads/t1" => (200, r#"{"id":"t1"}"#),
+            _ => (404, ""),
+        }));
+        assert_eq!(get_thread(&gmail, "m1", &[]).unwrap().id, "t1");
+    }
 
     #[test]
     fn validates_ids() {
@@ -218,7 +281,10 @@ mod tests {
 
     #[test]
     fn decodes_snippet_entities() {
-        assert_eq!(decode_entities("it&#39;s &amp; &lt;b&gt; &quot;x&quot; &#x105;"), "it's & <b> \"x\" ą");
+        assert_eq!(
+            decode_entities("it&#39;s &amp; &lt;b&gt; &quot;x&quot; &#x105;"),
+            "it's & <b> \"x\" ą"
+        );
         assert_eq!(decode_entities("AT&T & co;"), "AT&T & co;");
         assert_eq!(decode_entities("&#0;&#xD800;"), "\0&#xD800;");
     }

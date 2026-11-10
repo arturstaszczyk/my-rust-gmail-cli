@@ -32,6 +32,9 @@ pub fn agent() -> Agent {
 pub struct Gmail {
     agent: Agent,
     token: String,
+    /// Tests point this at a local stub; production always uses `GMAIL_BASE`.
+    #[cfg(test)]
+    base: String,
 }
 
 #[derive(Deserialize)]
@@ -46,7 +49,26 @@ struct GoogleErrorBody {
 
 impl Gmail {
     pub fn new(agent: Agent, token: String) -> Self {
-        Gmail { agent, token }
+        Gmail {
+            agent,
+            token,
+            #[cfg(test)]
+            base: GMAIL_BASE.into(),
+        }
+    }
+
+    /// Test-only client for a plain-HTTP stub at `base`.
+    #[cfg(test)]
+    pub fn for_test(base: String) -> Self {
+        let agent = Agent::config_builder()
+            .http_status_as_error(false)
+            .build()
+            .into();
+        Gmail {
+            agent,
+            token: "t".into(),
+            base,
+        }
     }
 
     /// Loads the client and refresh token and gets a fresh access token.
@@ -66,7 +88,10 @@ impl Gmail {
 
     /// GET `GMAIL_BASE + path`. Ids in `path` must already be validated.
     pub fn get<T: DeserializeOwned>(&self, path: &str, query: &[(&str, &str)]) -> Result<T> {
+        #[cfg(not(test))]
         let url = format!("{GMAIL_BASE}{path}");
+        #[cfg(test)]
+        let url = format!("{}{path}", self.base);
         let auth = format!("Bearer {}", self.token);
         let mut attempt = 1;
         loop {
