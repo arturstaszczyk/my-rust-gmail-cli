@@ -1,7 +1,7 @@
 //! OAuth 2.0 for installed apps: PKCE S256, random state, a one-shot loopback
 //! listener on 127.0.0.1, token exchange, refresh and revoke.
 
-use std::io::{Read, Write};
+use std::io::{BufRead, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
@@ -184,6 +184,66 @@ pub fn login(agent: &Agent, client: &Client) -> Result<Tokens> {
     let code = wait_for_code(&listener, &state)?;
     drop(listener);
     exchange_code(agent, client, &code, &verifier, &redirect_uri)
+}
+
+/// Headless flow: nothing listens. The browser (on any machine) fails to load
+/// the loopback redirect, and the user pastes that URL back on stdin.
+pub fn login_paste(agent: &Agent, client: &Client) -> Result<Tokens> {
+    let mut port = [0u8; 2];
+    getrandom::fill(&mut port).expect("OS random number generator failed");
+    let port = 49152 + u16::from_le_bytes(port) % 16384;
+    let redirect_uri = format!("http://127.0.0.1:{port}");
+    let verifier = random_b64(32);
+    let state = random_b64(16);
+    let url = auth_url(&client.client_id, &redirect_uri, &pkce_challenge(&verifier), &state);
+
+    eprintln!(
+        "Open this URL in a browser on any machine and sign in:\n\n{url}\n\n\
+         The browser then fails to load {redirect_uri}/... That is expected.\n\
+         Copy the full URL from the address bar and paste it here (5 minutes):"
+    );
+    let code = match classify_pasted(&read_pasted_line()?, &redirect_uri, &state) {
+        Callback::Code(code) => code,
+        Callback::Fail(msg) => return Err(Error::auth(msg)),
+        Callback::Ignore => unreachable!("classify_pasted never ignores"),
+    };
+    exchange_code(agent, client, &code, &verifier, &redirect_uri)
+}
+
+/// One line from stdin, at most 4 KB, within the login timeout.
+fn read_pasted_line() -> Result<String> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    // shortcut: on timeout the reader thread stays blocked; the process exits right after.
+    std::thread::spawn(move || {
+        let mut line = String::new();
+        let res = std::io::stdin().lock().take(4097).read_line(&mut line).map(|_| line);
+        let _ = tx.send(res);
+    });
+    let line = rx
+        .recv_timeout(LOGIN_TIMEOUT)
+        .map_err(|_| Error::auth("timed out after 5 minutes waiting for the pasted URL"))?
+        .map_err(|e| Error::io("reading the pasted URL", e))?;
+    if line.len() > 4096 {
+        return Err(Error::auth("the pasted URL is longer than 4 KB"));
+    }
+    Ok(line)
+}
+
+/// Checks a pasted redirect URL with the same rules as the loopback request.
+pub fn classify_pasted(input: &str, redirect_uri: &str, state: &str) -> Callback {
+    let not_redirect = || {
+        Callback::Fail(format!(
+            "that is not the redirect URL; paste the full address that starts with {redirect_uri}/"
+        ))
+    };
+    let Some(rest) = input.trim().strip_prefix(redirect_uri) else {
+        return not_redirect();
+    };
+    let target = if rest.starts_with('?') { format!("/{rest}") } else { rest.to_string() };
+    match classify_callback(&format!("GET {target} HTTP/1.1"), state) {
+        Callback::Ignore => not_redirect(),
+        other => other,
+    }
 }
 
 fn wait_for_code(listener: &TcpListener, state: &str) -> Result<String> {
@@ -375,6 +435,28 @@ pub fn revoke(agent: &Agent, token: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pasted_redirect_url() {
+        let r = "http://127.0.0.1:50000";
+        let code = Callback::Code("4/abc".into());
+        assert_eq!(classify_pasted(&format!("{r}/?state=S1&code=4%2Fabc&scope=x\n"), r, "S1"), code);
+        assert_eq!(classify_pasted(&format!("  {r}?state=S1&code=4/abc  "), r, "S1"), code);
+
+        let fails = [
+            format!("{r}/?state=WRONG&code=4/abc"),
+            format!("{r}/?error=access_denied&state=S1"),
+            format!("{r}/?state=S1"),
+            format!("{r}0/?state=S1&code=4/abc"),
+            format!("{r}/other?state=S1&code=4/abc"),
+            "http://127.0.0.1:1/?state=S1&code=4/abc".into(),
+            "4/abc".into(),
+            String::new(),
+        ];
+        for input in fails {
+            assert!(matches!(classify_pasted(&input, r, "S1"), Callback::Fail(_)), "{input}");
+        }
+    }
 
     #[test]
     fn pkce_rfc7636_vector() {

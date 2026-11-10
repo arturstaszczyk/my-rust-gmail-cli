@@ -11,6 +11,7 @@ use serde_json::json;
 use crate::api::{self, Gmail};
 use crate::error::Result;
 use crate::output::View;
+use store::TokenStore;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -27,27 +28,48 @@ pub fn setup(client_json: &Path) -> Result<View> {
     })
 }
 
-pub fn login() -> Result<View> {
+pub fn login(no_browser: bool, token_file: bool) -> Result<View> {
+    let kind = if token_file { TokenStore::File } else { TokenStore::Keyring };
     let client = store::load_client()?;
     let agent = api::agent();
-    let tokens = oauth::login(&agent, &client)?;
+    let tokens = if no_browser {
+        oauth::login_paste(&agent, &client)?
+    } else {
+        oauth::login(&agent, &client)?
+    };
     let gmail = Gmail::new(agent, tokens.access);
     let profile: Profile = gmail.get("/profile", &[])?;
     let account = profile.email_address;
 
-    store::set_refresh_token(&account, &tokens.refresh)?;
     let mut config = store::load_config()?;
     let old = config.account.replace(account.clone());
-    store::save_config(&config)?;
+    let old_kind = std::mem::replace(&mut config.token_store, kind);
+    if (old_kind, kind) == (TokenStore::File, TokenStore::File) {
+        // One fixed file: replacing it before a failed save would leave the
+        // config naming the old account with its token already gone.
+        store::save_config(&config)?;
+        store::set_refresh_token(kind, &account, &tokens.refresh)?;
+    } else {
+        // Writing the new store first never destroys the old token.
+        store::set_refresh_token(kind, &account, &tokens.refresh)?;
+        store::save_config(&config)?;
+    }
 
-    // Only drop the old token once the config no longer points at it.
-    let mut text = format!("Logged in as {account}");
+    // Only drop the old token once the config no longer points at it. The
+    // file has one fixed path, so a file-to-file login already replaced it.
+    let stale = |old: &String| match (old_kind, kind) {
+        (TokenStore::Keyring, TokenStore::Keyring) => *old != account,
+        (TokenStore::File, TokenStore::File) => false,
+        _ => true,
+    };
+    let mut text = format!("Logged in as {account} (token in {})", kind.name());
     let mut warning = None;
-    if let Some(old) = old.filter(|o| *o != account)
-        && let Err(e) = store::delete_refresh_token(&old)
+    if let Some(old) = old.filter(stale)
+        && let Err(e) = store::delete_refresh_token(old_kind, &old)
     {
         let w = format!(
-            "could not remove the keyring entry for {old}: {}",
+            "could not remove the old {} token for {old}: {}",
+            old_kind.name(),
             e.message
         );
         text.push_str(&format!("\nWarning: {w}"));
@@ -55,7 +77,7 @@ pub fn login() -> Result<View> {
     }
 
     Ok(View {
-        json: json!({ "account": account, "warning": warning }),
+        json: json!({ "account": account, "token_store": kind.name(), "warning": warning }),
         text,
     })
 }
@@ -68,17 +90,17 @@ pub fn logout() -> Result<View> {
             text: "Not logged in.".into(),
         });
     };
-    let token = store::get_refresh_token(&account)?;
+    let token = store::get_refresh_token(config.token_store, &account)?;
     let revoked = match &token {
         Some(t) => oauth::revoke(&api::agent(), t),
         None => Ok(()),
     };
-    let removed = store::delete_refresh_token(&account)?;
+    let removed = store::delete_refresh_token(config.token_store, &account)?;
     store::save_config(&config)?;
 
     let revoke_error = revoked.as_ref().err().map(|e| e.message.clone());
     let revoked = token.is_some() && revoked.is_ok();
-    let mut text = format!("Logged out {account}; keyring entry removed.");
+    let mut text = format!("Logged out {account}; {} token removed.", config.token_store.name());
     match &revoke_error {
         Some(e) => text.push_str(&format!(
             "\nCould not revoke at Google ({e}); revoke manually at https://myaccount.google.com/permissions"
@@ -99,9 +121,10 @@ pub fn logout() -> Result<View> {
 
 pub fn status() -> Result<View> {
     let client_configured = store::load_client().is_ok();
-    let account = store::load_config()?.account;
+    let config = store::load_config()?;
+    let (account, token_store) = (config.account, config.token_store);
     let token_stored = match &account {
-        Some(a) => store::get_refresh_token(a)?.is_some(),
+        Some(a) => store::get_refresh_token(token_store, a)?.is_some(),
         None => false,
     };
     // A real refresh is the only way to know the grant still works.
@@ -113,9 +136,10 @@ pub fn status() -> Result<View> {
     };
 
     let mut text = format!(
-        "client:  {}\naccount: {}\ntoken:   {}",
+        "client:  {}\naccount: {}\nstore:   {}\ntoken:   {}",
         if client_configured { "configured" } else { "missing (run `mg auth setup`)" },
         account.as_deref().unwrap_or("none (run `mg auth login`)"),
+        token_store.name(),
         match (token_stored, logged_in) {
             (false, _) => "none",
             (true, true) => "valid",
@@ -129,6 +153,7 @@ pub fn status() -> Result<View> {
         json: json!({
             "client_configured": client_configured,
             "account": account,
+            "token_store": token_store.name(),
             "token_stored": token_stored,
             "logged_in": logged_in,
             "error": error,
